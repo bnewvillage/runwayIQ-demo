@@ -1,0 +1,231 @@
+/* =========================================================
+   Brand Analytics -- page layout and components
+
+   Two compositions, kept apart on purpose, exactly as sales-layout.css
+   does it. STANDARD is the .ba-grid rules at the top. WIDE is the
+   media-query block below, and it restates its own grid, row heights and
+   card behaviour rather than adjusting the standard one -- so neither can
+   drift into the other by inheriting a rule written for it.
+
+   Every selector is prefixed .ba- and, in the wide block, scoped by
+   .app-shell--wide. An unscoped selector here would reshape components
+   this page borrows from Sales and Stock Analysis, which is the whole
+   reason .filterbar--sales exists.
+   ========================================================= */
+
+/* --- standard -------------------------------------------------------
+   One column of blocks, paired two-up where a pair reads well side by
+   side. Cards size to their content and the page scrolls. */
+.ba-grid {
+  display: grid; gap: var(--s3); align-items: start; margin-top: var(--s4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "cols     cols"
+    "trend    stockmix"
+    "splits   splits"
+    "board    board";
+}
+.ba-grid > .ba-cols        { grid-area: cols; }
+.ba-grid > .ba-trend       { grid-area: trend; }
+.ba-grid > .ba-stockmix    { grid-area: stockmix; }
+.ba-grid > .ba-splits-cell { grid-area: splits; }
+.ba-grid > .ba-board       { grid-area: board; }
+
+/* Nothing picked: the leaderboard is the page, and a two-column template
+   would leave four empty tracks around it. */
+.ba-grid--board {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "board";
+}
+
+
+/* A one-line statement of where the numbers come from. Not a warning --
+   it is always true, so it is toned as information rather than as a
+   problem the reader is expected to fix. */
+.note-inline {
+  border-left: 3px solid var(--edge);
+  background: var(--raised);
+  padding: var(--s2) var(--s3);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin: var(--s3) 0;
+  font-size: .86rem;
+  color: var(--ink-dim);
+}
+.note-inline b { color: var(--ink); }
+.ba-provenance { border-left-color: var(--info); }
+
+/* --- leaderboard ---------------------------------------------------- */
+.ba-search { max-width: 200px; }
+.ba-table .ba-tick { width: 28px; text-align: center; }
+.ba-table tbody tr { cursor: pointer; }
+.ba-brand-name { display: block; }
+/* A brand present in only one of the two sources. Said on the row rather
+   than left to an em-dash, which would read as a poor figure. */
+.ba-flag {
+  display: inline-block; margin-top: 2px; font-size: .68rem;
+  color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em;
+}
+/* Marks a growth figure that excluded a market. The title says which. */
+.ba-mark { color: var(--caution); font-weight: 700; margin-left: 3px; cursor: help; }
+.ba-foot { margin-top: var(--s2); color: var(--ink-faint); }
+.ba-board--collapsed .tablewrap-cap { max-height: 320px; }
+
+/* --- versus matrix -------------------------------------------------- */
+.ba-matrix td.col-name { white-space: normal; }
+.ba-matrix .group-row td {
+  background: var(--line-2, var(--raised));
+  font-weight: 620; font-size: .76rem; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--ink-dim);
+}
+.ba-group-note {
+  margin-left: var(--s2); text-transform: none; letter-spacing: 0;
+  font-weight: 400; color: var(--ink-faint);
+}
+.ba-th-sub {
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: var(--ink-faint); font-size: .68rem;
+}
+/* The ratio against the portfolio median. Toned with the signal colours,
+   because "this brand turns half as fast as the portfolio" is genuinely a
+   signal rather than decoration. */
+.ba-chip {
+  display: inline-block; margin-left: var(--s2); padding: 0 5px;
+  border-radius: 99px; font-size: .68rem; font-family: var(--font-mono);
+  color: var(--ink-faint); border: 1px solid var(--edge-soft);
+}
+.ba-chip--steady { color: var(--steady); border-color: currentColor; }
+.ba-chip--crit   { color: var(--crit);   border-color: currentColor; }
+.ba-basis { color: var(--info); font-size: .7rem; margin-left: 3px; cursor: help; }
+.ba-why { white-space: normal; color: var(--ink-faint); max-width: 260px; }
+.ba-reconcile { border-left-color: var(--caution); }
+
+/* --- stock mix ------------------------------------------------------ */
+.ba-mixes { display: flex; flex-direction: column; gap: var(--s4); margin-top: var(--s2); }
+.ba-mix-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--s2); margin-bottom: var(--s1);
+}
+.ba-mix-name { font-weight: 600; font-size: .9rem; }
+.ba-mix-total { font-family: var(--font-mono); font-size: .84rem; color: var(--ink-dim); }
+.ba-mix-foot { margin-top: var(--s1); color: var(--ink-faint); }
+
+/* --- splits --------------------------------------------------------- */
+.ba-splits { display: flex; flex-direction: column; gap: var(--s5); margin-top: var(--s2); }
+.ba-split-title { font-weight: 620; font-size: .86rem; margin-bottom: var(--s2); }
+.ba-split-row {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center; gap: var(--s3); margin-bottom: var(--s2);
+}
+.ba-split-name {
+  font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ba-split-bar { display: flex; height: 12px; border-radius: 3px; overflow: hidden; }
+
+/* --- trend ---------------------------------------------------------- */
+.ba-trend-controls {
+  display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap;
+  margin-top: var(--s2);
+}
+.ba-trend-controls .small { color: var(--ink-faint); }
+
+/* --- narrow ---------------------------------------------------------
+   Two columns of charts and tables stop being readable well before the
+   phone widths, and this grid had no breakpoint at all -- it held two
+   columns down to 320px. One column, same order, same areas. Matches
+   .stock-layout, which collapses at the same width. */
+@media (max-width: 900px) {
+  .ba-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "cols" "trend" "stockmix" "splits" "board";
+  }
+  /* The name column was a fixed 150px against a bar that then had
+     nowhere to go. */
+  .ba-split-row { grid-template-columns: minmax(0, 110px) minmax(0, 1fr); }
+  .ba-search { max-width: 140px; }
+  /* The tick travels with the brand name, or a scrolled row cannot be
+     selected without scrolling back. Both pin; the shared rule pins
+     .col-name only, which would leave the checkbox behind. */
+  .ba-table tbody td.ba-tick, .ba-table thead th.ba-tick {
+    position: sticky; left: 0; z-index: 2; background: var(--surface);
+  }
+  .ba-table thead th.ba-tick { background: var(--raised); }
+  /* Matched to the shared rule's specificity on purpose. That rule is
+     .tablewrap table.fa-table tbody td.col-name -- three classes and
+     three elements -- so a shorter selector here loses and the name
+     pins to 0, sliding underneath the checkbox. Same weight, later in
+     the cascade, wins. */
+  .tablewrap table.ba-table tbody td.col-name,
+  .tablewrap table.ba-table thead th.col-name { left: 28px; }
+}
+
+/* --- wide -----------------------------------------------------------
+   The head band and controls keep the standard measure: they are the same
+   controls whatever the body is doing, and reflowing them on a width
+   toggle means re-finding them. */
+.app-shell--wide .page-head,
+.app-shell--wide .filterbar--brand,
+.app-shell--wide .ba-provenance { --measure: var(--measure-base); }
+
+@media (min-width: 2100px) {
+  /* THE GRID IS ABSOLUTE, for the same reason Sales states it: a track
+     sized from its content is pushed open by whatever is in it, and a
+     table allowed to render every row is how a page grows to 27,000px.
+     Both rows are fixed and the grid takes none of its height from the
+     viewport -- a taller screen shows more of the page, it does not
+     inflate the same content. */
+  .app-shell--wide .ba-grid {
+    margin-top: var(--s7);
+    gap: var(--s7) var(--s5);
+    align-items: stretch;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 460px);
+    grid-template-areas:
+      "cols  cols  cols  cols  cols  trend  trend  trend  stockmix stockmix stockmix stockmix"
+      "board board board board board board  board  splits splits   splits   splits   splits";
+  }
+  /* Nothing picked: one full-width band. The row is FIXED, not auto.
+     Measured with auto: 69 brands rendered every row and pushed the track
+     to 2,376px, which is the same failure that once grew the Sales page
+     to 27,260 -- a track sized from its content is opened by whatever is
+     in it. The table scrolls inside the card instead. Taller than the
+     paired rows below because this is the whole page when it shows. */
+  .app-shell--wide .ba-grid--board {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: 760px;
+    grid-template-areas: "board board board board board board board board board board board board";
+  }
+
+  /* Every card fills its cell exactly and may not exceed it. What does not
+     fit is the card's to scroll, never the grid's to absorb. */
+  .app-shell--wide .ba-grid > * {
+    min-width: 0; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .app-shell--wide .ba-grid > * > .chart-card {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  }
+
+  /* SalesTrendChart draws its own .chart-card, so a chart inside one of
+     these cells is a panel within a panel: a second border, and a plot
+     that ignores the height it was given. Flattened, and made a column so
+     the plot can fill. */
+  .app-shell--wide .ba-grid > .ba-trend > .chart-card {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    margin: 0; padding: 0; border: 0; background: none; border-radius: 0;
+  }
+  .app-shell--wide .ba-grid .chart-plot { flex: 1 1 auto; min-height: 0; }
+
+  /* Tables take the room left in their card and scroll inside it. */
+  .app-shell--wide .ba-grid .tablewrap-cap,
+  .app-shell--wide .ba-grid .tablewrap-fill {
+    flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto;
+  }
+  .app-shell--wide .ba-board--collapsed .tablewrap-cap { max-height: none; }
+
+  /* The two stacked lists scroll rather than pushing their card open. */
+  .app-shell--wide .ba-grid .ba-mixes,
+  .app-shell--wide .ba-grid .ba-splits {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  }
+  .app-shell--wide .ba-split-row { grid-template-columns: 190px minmax(0, 1fr); }
+}

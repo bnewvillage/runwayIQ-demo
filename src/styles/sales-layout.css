@@ -1,0 +1,307 @@
+/* =========================================================
+   Sales Analytics -- page layout
+
+   Lifted out of styles.css, which had grown to 1776 lines with ~190 of
+   them belonging to this one page. Everything here is scoped to the
+   sales page's own grids (.head-grid, .data-grid, .filterbar inside
+   .app-shell--wide) and to the share-column component that only that
+   layout renders.
+
+   Two compositions, kept apart on purpose. STANDARD is the .data-grid
+   rules at the top. WIDE is the media-query block below, and it states
+   its own grid, row heights and card behaviour rather than adjusting
+   the standard one -- so neither can drift into the other by inheriting
+   a rule written for it.
+   ========================================================= */
+
+/* =========================================================
+   Sales Analytics layout
+
+   Two separate compositions, not one with adjustments layered on it.
+   STANDARD is the default rules below. WIDE is the media-query block
+   after them, and it restates everything it needs -- its own grid, row
+   heights and card behaviour -- so neither can drift into the other by
+   inheriting a rule written for the other one.
+   ========================================================= */
+
+/* --- standard -------------------------------------------------------
+   One column of blocks, paired two-up where a pair reads well side by
+   side. Cards size to their content and the page scrolls. */
+.data-grid {
+  display: grid; gap: var(--s3); align-items: start; margin-top: var(--s4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "chartMkt  chartChan"
+    "donutMkt  donutChan"
+    "brand     cust"
+    "items     items";
+}
+.data-grid > .da-chart-country { grid-area: chartMkt; }
+.data-grid > .da-chart-channel { grid-area: chartChan; }
+.data-grid > .da-donut-country { grid-area: donutMkt; }
+.data-grid > .da-donut-channel { grid-area: donutChan; }
+.data-grid > .da-brand { grid-area: brand; }
+.data-grid > .da-cust  { grid-area: cust; }
+.data-grid > .da-items { grid-area: items; }
+.data-grid > .chart-card { margin-top: 0; }
+.tablewrap-cap { max-height: 460px; overflow-y: auto; }
+
+/* --- narrow ---------------------------------------------------------
+   Two columns of charts stop being readable long before a phone. At
+   390px each cell was 175px wide, which is narrower than the chart's own
+   tooltip. One column, same order. Every other multi-column grid in the
+   app already collapses somewhere between 700px and 1200px; this one
+   never did. */
+@media (max-width: 900px) {
+  .data-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "chartMkt" "donutMkt" "chartChan" "donutChan" "brand" "cust" "items";
+  }
+}
+
+/* --- wide -----------------------------------------------------------
+   The page title and filter bar keep the standard measure: they are the
+   same controls whatever the body is doing, and reflowing them on a
+   width toggle means re-finding them. */
+.app-shell--wide .page-head,
+.app-shell--wide .filters { --measure: var(--measure-base); }
+
+@media (min-width: 2100px) {
+  /* The filter bar.
+
+     Each label sits ON the line with the controls it names, not stacked
+     above them and pulled to the other side of the bar -- the previous
+     arrangement left "SHOW" hanging over empty space with its buttons
+     240px away at the far edge, and a gulf down the middle of the bar
+     that belonged to nothing.
+
+     Two clusters: what you are looking at on the left, how and when on
+     the right. They sit at their natural widths rather than stretching,
+     so the bar is as wide as its contents and no wider. Period spans the
+     full width beneath -- it is the longest row by some margin, and
+     wrapping it into a column made it the ragged one. */
+  .app-shell--wide .filterbar--sales {
+    display: grid; align-items: center;
+    justify-content: space-between;
+    grid-template-columns: max-content max-content;
+    gap: var(--s4) var(--s7);
+    grid-template-areas:
+      "title   actions"
+      "market  show"
+      "channel currency"
+      "period  period";
+  }
+  .app-shell--wide .filterbar--sales > .page-head { grid-area: title; padding: 0; }
+  .app-shell--wide .filterbar--sales > .fg-market { grid-area: market; }
+  .app-shell--wide .filterbar--sales > .fg-channel { grid-area: channel; }
+  .app-shell--wide .filterbar--sales > .fg-period { grid-area: period; }
+  .app-shell--wide .filterbar--sales > .fg-show { grid-area: show; }
+  .app-shell--wide .filterbar--sales > .fg-currency { grid-area: currency; }
+
+  /* Label and controls on one line, the label right-aligned in a column
+     of its own so every row of chips starts at the same x. */
+  .app-shell--wide .filterbar--sales .filtergroup {
+    display: grid; grid-template-columns: 76px minmax(0, 1fr);
+    align-items: center; gap: var(--s3); margin: 0;
+  }
+  .app-shell--wide .filterbar--sales .filtergroup-label {
+    text-align: right; margin: 0; line-height: 1.2;
+  }
+  .app-shell--wide .filterbar--sales .filtergroup-row { margin: 0; }
+
+  /* Clear and the drilled-month chip answer the whole bar, so they sit on
+     the title line at the opposite edge -- a permanent cell, so setting a
+     filter cannot add a row and shift everything below it. */
+  .app-shell--wide .filterbar--sales > .fg-drill,
+  .app-shell--wide .filterbar--sales > .filterbar-end {
+    grid-area: actions; justify-content: flex-end; align-self: center;
+    padding: 0; min-height: 28px;
+  }
+
+  /* Head band. The controls and the group that never moves take the left
+     five columns -- the filter bar above, Orders beneath it, since its
+     cards never open into a market x channel matrix. The two expandable
+     groups take the right seven, stacked, which keeps their tiles wide
+     enough for a figure and a three-part scope caption.
+
+     Padded off the nav so the first row of cards is not against the
+     topbar -- the page title used to provide that gap, and it now sits
+     inside the filter bar instead. */
+  .app-shell--wide .head-grid {
+    display: grid; gap: var(--s5) var(--s6); align-items: start;
+    padding-top: var(--s6);
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-areas:
+      "filters filters filters filters filters sales   sales   sales   sales   sales   sales   sales"
+      "orders  orders  orders  orders  orders  quality quality quality quality quality quality quality";
+  }
+  .app-shell--wide .head-grid > .da-filters { grid-area: filters; }
+  .app-shell--wide .head-grid > .da-kpi-sales { grid-area: sales; }
+  .app-shell--wide .head-grid > .da-kpi-quality { grid-area: quality; }
+  .app-shell--wide .head-grid > .stock-kpi-group { margin-top: 0; }
+  /* Orders never expands, so its cell is short next to two that do. It
+     sits at the bottom of the band, so the head ends on one line rather
+     than leaving it hanging under the filters. */
+  .app-shell--wide .head-grid > .da-kpi-orders {
+    grid-area: orders; align-self: end;
+  }
+
+  /* No highlight on an open card here. Every expandable card starts open
+     in this layout, so the amber said nothing about the one you clicked
+     -- it just tinted the head band. The arrow in the label already
+     carries the open/closed state. */
+  .app-shell--wide .head-grid .stock-kpi-tile--action.selected {
+    border-color: var(--edge); background: var(--surface);
+  }
+
+  /* An expanded tile holds its height whatever is selected. The matrix
+     itself is already a constant 3x3 (see matrix()'s `full`), but a
+     narrowed card grows a second figure and its caption, so the tile went
+     200 -> 207 and the whole head band shifted down as you clicked a
+     market. Reserved at the taller of the two states. */
+  .app-shell--wide .head-grid .stock-kpi-tile { min-height: 207px; }
+
+  /* THE GRID IS ABSOLUTE.
+
+     Both rows are a fixed height and the grid takes none of its size
+     from the viewport. Nothing here grows when the window does: a chart,
+     a set of bars and a table of twenty rows say exactly as much on a
+     1440px screen as on a 2100px one, so scaling them with the display
+     only inflates the same content. A taller screen shows more of the
+     page at once instead, which is the thing worth having.
+
+     Fixed rows are also what makes the cards safe to pin (below). A
+     track sized from its content will be pushed open by whatever is in
+     it -- that is how tables allowed to render every row once grew the
+     rows to 10731px and 16097px, and the page to 27260.
+
+     The column split favours the tables. A line chart reads fine in
+     three columns -- it is a shape, and a wider one only stretches the
+     same shape -- while a table of twelve columns of figures uses every
+     pixel it is given. */
+  .app-shell--wide .data-grid {
+    /* Room to breathe. At a 12px gutter the seven cards read as one
+       continuous field of numbers with hairlines through it; there was
+       nothing to tell the eye where one thing ended. The row gap is
+       larger than the column gap on purpose -- the two bands are separate
+       thoughts, the cards within a band are one. */
+    margin-top: var(--s7);
+    gap: var(--s7) var(--s5);
+    /* stretch, not the base rule's `start`: with `start` a grid item sizes
+       to its content, so the track stayed 894px while the card inside it
+       grew to 16097 and simply overflowed. The track is only absolute if
+       the card is pinned to it. */
+    align-items: stretch;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    /* Equal. Two bands holding the same number of cards have no reason to
+       differ, and 420 over 560 read as a mistake rather than a decision --
+       every card lined up inside its own band while the bands themselves
+       did not line up with each other.
+
+       Trimmed from 500 once the gutters opened up: the cards had been
+       sized to fill space that is now gap, so keeping 500 just made a
+       taller page out of the same content. */
+    grid-template-rows: repeat(2, 420px);
+    grid-template-areas:
+      "chartMkt  chartMkt  chartMkt  donutMkt  donutMkt  brand brand brand brand cust  cust  cust"
+      "chartChan chartChan chartChan donutChan donutChan items items items items items items items";
+  }
+
+  /* Every card fills its cell exactly and may not exceed it. What does
+     not fit is the card's to scroll, never the grid's to absorb. */
+  .app-shell--wide .data-grid > * {
+    min-width: 0; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  /* SalesTrendChart draws its own .chart-card, so a chart inside one of
+     these is a panel within a panel: a second border, and a block that
+     ignored the height it had been given -- the plot stayed 176px in a
+     1049px cell. Flattened, and made a column so the plot can fill. */
+  .app-shell--wide .data-grid > .da-chart-country > .chart-card,
+  .app-shell--wide .data-grid > .da-chart-channel > .chart-card {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    margin: 0; padding: 0; border: 0; background: none; border-radius: 0;
+  }
+  /* Both fill their card. No cap is needed now that the rows are fixed:
+     the card cannot grow, so neither can they. */
+  .app-shell--wide .data-grid .chart-plot { flex: 1 1 auto; min-height: 0; }
+  .app-shell--wide .data-grid .share-bars { flex: 1 1 auto; min-height: 0; }
+
+  /* Tables take the room left in their card and scroll inside it. */
+  .app-shell--wide .data-grid .tablewrap-cap,
+  .app-shell--wide .data-grid .tablewrap-fill {
+    flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto;
+  }
+
+  /* Revenue over Units, not beside it. Side by side, two sets of three
+     columns split a 404px card into ~55px bars, and "AED 29.3M" was
+     clipped above every one of them. Stacked, a column is ~125px and the
+     figure fits. The BARS are still vertical -- it is the two measures
+     that stack. */
+  .share-figs {
+    display: flex; flex-direction: column; gap: var(--s4);
+    flex: 1 1 auto; min-height: 0;
+  }
+  .share-fig {
+    display: flex; flex-direction: column;
+    flex: 1 1 0; min-width: 0; min-height: 0;
+  }
+  .share-fig + .share-fig {
+    border-top: 1px solid var(--edge-soft); padding-top: var(--s3);
+  }
+
+  /* Share columns -- the wide layout's form of the same card. Vertical, on
+     a shared baseline, so three categories are compared by height in one
+     glance rather than by arc length around a circle. */
+  .share-fig-label {
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: var(--s3);
+  }
+  .share-bars {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; align-items: stretch; gap: var(--s3);
+  }
+  .share-bar {
+    flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: none; border: 0; padding: 0; cursor: pointer;
+    color: var(--ink-dim); font: inherit;
+  }
+  .share-bar:hover, .share-bar.active { color: var(--ink); }
+  .share-bar-value {
+    font-size: 11px; font-weight: 600; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  /* The column is the flexible part, and the fill is positioned inside it
+     rather than sized by percentage height: a percentage against a parent
+     whose own height comes from flexing resolves to auto, which would
+     leave every bar the same length. */
+  .share-bar-col {
+    flex: 1 1 auto; min-height: 0; width: 100%; position: relative;
+  }
+  .share-bar-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    border-radius: 3px 3px 0 0; min-height: 2px;
+  }
+  .share-bar-fill--steady { background: var(--steady); }
+  .share-bar-fill--caution { background: var(--caution); }
+  .share-bar-fill--info { background: var(--info); }
+  .share-bar-fill--crit { background: var(--crit); }
+  .share-bar-key {
+    font-size: 11px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 100%;
+  }
+  .share-bar-pct { font-size: 10px; color: var(--ink-faint); }
+  .share-bar.active .share-bar-pct { color: var(--ink-dim); }
+
+  /* The page title when it sits inside the filter bar: a name on the
+     controls, not a banner over the page. The sub-line goes -- it counts
+     cube cells, which is a thing to know once, not to keep on screen
+     beside the controls. */
+  .app-shell--wide .filterbar--sales .page-head h1 {
+    font-size: 17px; margin: 0; letter-spacing: -0.01em;
+  }
+  .app-shell--wide .filterbar--sales .page-head .page-sub { display: none; }
+}

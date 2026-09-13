@@ -1,0 +1,2145 @@
+/* =========================================================
+   Runway IQ — instrument deck
+   =========================================================
+   This is a planning instrument, not a dashboard. The model is an
+   operations console: a lot of figures, scanned fast, where the job is
+   spotting the few rows that need a decision. Everything here serves
+   that — signal colour never decorates, figures are always monospaced
+   and tabular, and density is deliberate rather than incidental.
+
+   Layout rule that governs the whole app: content lives inside a
+   container with real gutters. Before this, eleven separate rules each
+   applied their own `padding: 0 1.75rem`, so every block independently
+   hugged the viewport edge and figures ended up against the scrollbar.
+   A wide screen now buys MORE COLUMNS, not wider ones.
+   ========================================================= */
+
+:root {
+  /* Ground has a cool blue cast rather than neutral charcoal, so the
+     signal colours read as instrument lights against it instead of
+     stickers on grey. */
+  --ground:     #0B0F16;
+  --surface:    #131A25;
+  --raised:     #1B2331;
+  --raised-hi:  #212B3B;
+  --edge:       #26303F;
+  --edge-soft:  #1B2330;
+
+  --ink:        #EAEDF3;
+  --ink-dim:    #939DB2;
+  --ink-faint:  #5C6679;
+
+  /* Signals. These four are the ONLY colours that carry meaning, and
+     they are never used decoratively — if something is amber here, it
+     is asking for attention. */
+  --crit:       #FF6A45;
+  --caution:    #F0A93B;
+  --steady:     #43C08D;
+  --info:       #5B9BFF;
+  --crit-bg:    rgba(255, 106, 69, 0.13);
+  --caution-bg: rgba(240, 169, 59, 0.13);
+  --steady-bg:  rgba(67, 192, 141, 0.12);
+  --info-bg:    rgba(91, 155, 255, 0.12);
+
+  /* Markets are identity, not urgency, so they sit at lower chroma and
+     can never be mistaken for a signal. */
+  --mkt-uae: #6E9BF5;
+  --mkt-qat: #A78BD9;
+  --mkt-ksa: #C9A961;
+  /* Channels have their OWN three, deliberately far from the market hues
+     -- blue, violet, sand -- so nothing on any page can be read as two
+     things at once. They used to alias straight onto the market colours,
+     which meant blue was UAE on one card and Showroom on the next.
+
+     They must stay DEFINED, whatever the values: var(--mkt-${dot}) is how
+     every chart resolves a series colour, and an undefined var falls back
+     to none for a stroke (invisible line) and black for a fill. */
+  --mkt-showroom: #35C39A;
+  --mkt-distribution: #E06FA8;
+  --mkt-ecommerce: #9BCF4A;
+
+  /* Comparison SLOTS, not identities. On Brand Analytics the colour means
+     "column two", never a brand -- the same hue is whichever brand is
+     ticked second. They are lower chroma again than the market hues so a
+     positional colour can never be read as a signal, and they must stay
+     DEFINED for the same reason those must: var(--mkt-${dot}) is how every
+     chart resolves a series colour, and an undefined var falls back to
+     none for a stroke, which is an invisible line rather than an error. */
+  --mkt-brand-a: #8FA6B8;
+  --mkt-brand-b: #C08A6E;
+  --mkt-brand-c: #7FB09B;
+  --mkt-brand-d: #B294B8;
+
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body:    'Archivo', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Spacing scale. Every padding/margin below comes from this — the
+     previous mix of 1.75rem / 1.25rem / 6px / 10px / 14px had no
+     relationship between values. */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+
+  /* The gutter grows with the viewport: tight on a phone, generous on a
+     large monitor. This is what keeps figures off the scrollbar. */
+  --gutter: clamp(16px, 4vw, 72px);
+  --measure-base: 1720px;  /* default content cap */
+  --measure:      var(--measure-base);
+  --measure-wide: 2200px;  /* the comparison matrix only */
+  /* Wide view. Viewport-relative rather than a fixed cap: the point is
+     to spend the margin an ultrawide leaves over, and that margin is
+     only knowable at runtime. The cap is high because the layout it
+     feeds is three columns -- the old 2600px cap was chosen for ONE
+     column of text, where a row's name and number drift too far apart;
+     split three ways that limit does not apply, and holding it just
+     left dead space down both sides. */
+  --measure-ultra: min(3400px, 97vw);
+
+  /* Derived tints and lines. These were inline rgba() literals, which a
+     palette swap cannot reach -- the roll-up column tints stayed
+     dark-tuned on a light ground and washed out. */
+  --tint-global:      rgba(91, 155, 255, .055);
+  --tint-global-head: rgba(91, 155, 255, .08);
+  --tint-value:       rgba(201, 169, 97, .05);
+  --tint-value-head:  rgba(201, 169, 97, .08);
+  --line-info:        rgba(91, 155, 255, .40);
+  --line-caution:     rgba(240, 169, 59, .30);
+  --shadow-pop:       0 12px 32px rgba(0, 0, 0, .5);
+
+  --radius: 5px;
+  --radius-lg: 8px;
+}
+
+/* ---------------------------------------------------------
+   Light palette
+   ---------------------------------------------------------
+   Not an inversion. The instrument-deck signals are tuned to glow against
+   a near-black ground; dropped onto white they lose contrast and stop
+   reading as warnings, so each one is re-picked darker and more saturated
+   here. The cool cast is kept -- it's the product's identity, and a pure
+   white ground would read as a document rather than an instrument. */
+:root[data-theme="light"] {
+  --ground:     #F1F4F9;
+  --surface:    #FFFFFF;
+  --raised:     #E8EDF5;
+  --raised-hi:  #DDE4EF;
+  --edge:       #C7D0DF;
+  --edge-soft:  #E3E8F1;
+
+  --ink:        #141B27;
+  --ink-dim:    #566073;
+  --ink-faint:  #838DA1;
+
+  --crit:       #C93E14;
+  --caution:    #96650A;
+  --steady:     #147450;
+  --info:       #2159C4;
+  --crit-bg:    rgba(201, 62, 20, .10);
+  --caution-bg: rgba(150, 101, 10, .12);
+  --steady-bg:  rgba(20, 116, 80, .10);
+  --info-bg:    rgba(33, 89, 196, .10);
+
+  --mkt-uae: #2F62CC;
+  --mkt-qat: #6F4EB8;
+  --mkt-ksa: #8A6A1E;
+  --mkt-showroom: #12876A;
+  --mkt-distribution: #B23C74;
+  --mkt-ecommerce: #5B841C;
+  /* Re-picked darker for light mode, not inverted -- same rule as the
+     market hues directly above. */
+  --mkt-brand-a: #4A6379;
+  --mkt-brand-b: #9A5A38;
+  --mkt-brand-c: #3C7A63;
+  --mkt-brand-d: #7A4E82;
+
+  --tint-global:      rgba(33, 89, 196, .06);
+  --tint-global-head: rgba(33, 89, 196, .10);
+  --tint-value:       rgba(138, 106, 30, .06);
+  --tint-value-head:  rgba(138, 106, 30, .10);
+  --line-info:        rgba(33, 89, 196, .45);
+  --line-caution:     rgba(150, 101, 10, .35);
+  --shadow-pop:       0 12px 32px rgba(20, 27, 39, .18);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+
+/* Accessibility floor: focus is always visible, motion is always
+   optional. Neither is announced anywhere in the UI; they just hold. */
+:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Scrollbars are deliberately legible rather than tucked away. Several
+   surfaces here scroll independently (an expanded brand's item table, the
+   brand dropdown, the matrix sideways), and a nearly invisible thumb left
+   it ambiguous whether a panel scrolled at all. */
+* { scrollbar-width: thin; scrollbar-color: var(--ink-faint) var(--edge-soft); }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--edge-soft); border-radius: 6px; }
+::-webkit-scrollbar-thumb {
+  background: var(--ink-faint); border-radius: 6px;
+  border: 2px solid var(--edge-soft);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+::-webkit-scrollbar-corner { background: var(--edge-soft); }
+
+/* ---------------------------------------------------------
+   Layout primitives
+   --------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: calc(var(--measure) + var(--gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+/* Widening is a PAGE decision, not a per-block one. Forecast Analytics
+   earns extra width because each additional column is another market or
+   metric visible without scrolling — but if only its table widened, the
+   table's left edge would sit 240px left of the toolbar above it and read
+   as a broken margin. Setting --measure on the page re-caps every
+   .container inside it at once, so the whole page stays flush. */
+.page--wide { --measure: var(--measure-wide); }
+/* Wide view re-caps BOTH measures, so pages that already opted into
+   the wide measure widen too rather than staying pinned at 2200px
+   while everything around them grows. .fa-table-wrap keeps its
+   max() against its own fitted width and still wins when the table
+   genuinely needs more. */
+.app-shell--wide {
+  --measure: var(--measure-ultra);
+  --measure-wide: var(--measure-ultra);
+  /* The page gutter is sized for a centred column of text. In wide view
+     it is just margin on an already-wide layout, so it tightens. */
+  --gutter: clamp(16px, 1.4vw, 32px);
+}
+
+.container--wide { max-width: calc(var(--measure-wide) + var(--gutter) * 2); }
+
+/* The comparison matrix is the single element allowed to exceed the page's
+   normal measure -- see the .fa-table-wrap rule below for how, and why
+   max-width:none was wrong. */
+
+.app-shell { min-height: 100%; padding-bottom: var(--s8); }
+
+/* The matrix wrapper sets its OWN --measure, defaulting to the page's
+   normal wide measure but growing to whatever the table's own columns
+   need (see fittedWidth in useFittedBlocks.js) when that's larger. It
+   still goes through the ordinary .container centering rule above --
+   max-width + margin-inline:auto -- rather than max-width:none.
+
+   That distinction is the whole fix for a real bug: max-width:none gives
+   margin-inline:auto nothing to center against, so the wrapper fills
+   100% of the page with no centering offset, while every OTHER .container
+   on the page (toolbar, hero, readout) stays capped and centers itself
+   with equal side margins. Past ~2344px the gap between "centered" and
+   "flush left" becomes the table visibly starting well left of the
+   toolbar above it -- confirmed live, at 2560+ the divergence is large
+   and unmistakable. A single shared --measure mechanism means the table
+   is exactly as wide as it needs to be AND aligns with everything else,
+   instead of trading one for the other. */
+.fa-table-wrap { --measure: max(var(--measure-wide), var(--fa-fitted, 0px)); }
+
+/* ---------------------------------------------------------
+   Topbar
+   --------------------------------------------------------- */
+.topbar {
+  border-bottom: 1px solid var(--edge);
+  background: linear-gradient(var(--surface), var(--ground));
+  position: sticky; top: 0; z-index: 40;
+}
+.topbar-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s4); padding-block: var(--s3);
+}
+.topbar-left { display: flex; align-items: center; gap: var(--s6); min-width: 0; }
+/* The mark is the way home, so it has to look like a control without
+   becoming a button. */
+a.mark { text-decoration: none; color: inherit; border-radius: var(--radius); }
+a.mark:hover span.accent { color: var(--ink); }
+.mark {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 15px;
+  font-stretch: 125%;                 /* the width axis, used on purpose */
+  letter-spacing: .16em;
+  display: flex; align-items: center; gap: .34em;
+  white-space: nowrap;
+}
+.mark span.accent { color: var(--info); }
+.nav-links { display: flex; gap: var(--s1); align-items: center; }
+.nav-group { position: relative; }
+.nav-group-trigger {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: inherit; border: 0; background: transparent; cursor: pointer;
+}
+.nav-caret { transition: transform .14s; opacity: .7; }
+.nav-group-trigger.is-open .nav-caret { transform: rotate(180deg); }
+/* A panel, not a bare list: each item carries a line saying what the
+   page answers, which is the whole reason a group earns its extra
+   click. */
+.nav-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  min-width: 244px; padding: var(--s2);
+  background: var(--raised); border: 1px solid var(--edge);
+  border-radius: var(--radius); box-shadow: 0 10px 28px rgba(0, 0, 0, .38);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.nav-panel-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--s2) var(--s3); border-radius: var(--radius);
+  text-decoration: none; color: var(--ink-dim);
+}
+.nav-panel-item:hover { background: var(--raised-hi); color: var(--ink); }
+.nav-panel-item.active { background: var(--info-bg); color: var(--ink); }
+.nav-panel-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+.nav-panel-note { font-size: 11px; color: var(--ink-faint); line-height: 1.35; }
+.nav-link {
+  font-size: 13px; font-weight: 500; color: var(--ink-dim);
+  padding: var(--s2) var(--s3); border-radius: var(--radius);
+  text-decoration: none; white-space: nowrap; transition: color .12s, background .12s;
+}
+.nav-link:hover { color: var(--ink); background: var(--raised); }
+.nav-link.active { color: var(--ink); background: var(--info-bg); box-shadow: inset 0 -2px 0 var(--info); }
+.topbar-right { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+
+/* Responsiveness. Two breakpoints, each fixing the thing that actually
+   breaks at that width rather than one blanket collapse. */
+@media (max-width: 1000px) {
+  /* The bar stops fitting on one line before the nav itself stops
+     fitting, so the nav drops to its own row. Every page stays reachable
+     without a hamburger and its menu.
+
+     It WRAPS rather than scrolling sideways, and that is the whole fix
+     for the dropdowns. `overflow-x: auto` with `overflow-y: visible` is
+     not a combination CSS honours: when one axis is visible and the
+     other is not, the visible one computes to auto. So the nav became a
+     scroll container on BOTH axes, and .nav-panel -- absolutely
+     positioned at top: 100% + 6px, i.e. outside the nav's own box -- was
+     clipped by it. Measured at 900px wide: 1px of a 48px panel visible,
+     which is a menu that opens onto nothing.
+
+     Wrapping needs no overflow at all, so there is no container left to
+     clip the panel. Three items wrap to two rows at worst. */
+  .topbar-inner { flex-wrap: wrap; row-gap: var(--s2); }
+  .topbar-left { order: 1; width: 100%; gap: var(--s4); flex-wrap: wrap; }
+  .topbar-right { order: 0; margin-left: auto; }
+  .nav-links { flex-wrap: wrap; row-gap: var(--s1); }
+}
+@media (max-width: 640px) {
+  /* Sticky costs a row of a short screen, and the bar is one tap from
+     the top anyway once the page is this narrow. */
+  .topbar { position: static; }
+  .nav-links { width: 100%; justify-content: flex-start; }
+  .nav-link { padding: var(--s1) var(--s2); font-size: 12.5px; }
+  /* Identity is not worth a row at this width. */
+  .user-email { display: none; }
+}
+@media (max-width: 560px) {
+  .mark { font-size: 13px; letter-spacing: .12em; }
+  /* A 244px panel overflows a narrow screen once it is offset from the
+     left edge, so here it spans the bar instead of hanging off its
+     trigger.
+
+     That needs the containing block moved. .nav-group is position:
+     relative, so an absolutely positioned panel resolves against the
+     TRIGGER, and left:0;right:0 then means "as wide as the word
+     Analytics" -- measured at 96px, which is narrower than the note text
+     inside it. Making the group static and the bar relative is what
+     actually anchors it to the bar. */
+  .topbar-inner { position: relative; }
+  .nav-group { position: static; }
+  .nav-panel { left: 0; right: 0; min-width: 0; }
+}
+.user-email { font-size: 12px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-signout {
+  font-family: inherit; font-size: 12px; color: var(--ink-dim);
+  background: transparent; border: 1px solid var(--edge);
+  border-radius: var(--radius); padding: var(--s1) var(--s3); cursor: pointer; white-space: nowrap;
+}
+.btn-signout:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.auth-loading, .page-loading, .page-error {
+  padding: var(--s8) var(--s5); text-align: center;
+  color: var(--ink-dim); font-size: 13px;
+}
+.page-error { color: var(--crit); }
+
+/* ---------------------------------------------------------
+   Login
+   --------------------------------------------------------- */
+.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--s5); }
+.login-card {
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius-lg);
+  padding: var(--s7) var(--s6); width: min(360px, 100%); text-align: center;
+}
+.login-logo { color: var(--info); margin-bottom: var(--s3); }
+.login-logo svg { width: 28px; height: 28px; }
+.login-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px;
+  font-stretch: 118%; letter-spacing: .04em; margin-bottom: var(--s2);
+}
+.login-sub { font-size: 13px; color: var(--ink-dim); margin-bottom: var(--s5); line-height: 1.55; }
+.btn-google {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  background: var(--ink); color: #10141B; border: none; border-radius: var(--radius);
+  padding: var(--s3) var(--s5); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-google svg { width: 18px; height: 18px; }
+.error-msg { color: var(--crit); font-size: 12px; margin-top: var(--s4); }
+.login-footer { color: var(--ink-faint); font-size: 11px; margin-top: var(--s5); }
+
+/* ---------------------------------------------------------
+   Page head — the hero figure
+   ---------------------------------------------------------
+   One number leads each page, set in Archivo's expanded width. The
+   width axis (not just size) is what gives it presence; supporting
+   stats stay narrow beside it so the hierarchy is unmistakable. */
+.page-head { padding-block: var(--s6) var(--s5); }
+.page-eyebrow {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 var(--s3);
+}
+.hero-row { display: flex; align-items: flex-end; gap: var(--s7); flex-wrap: wrap; }
+.hero-metric { min-width: 0; }
+.hero-figure {
+  font-family: var(--font-display); font-weight: 700;
+  font-stretch: 125%; font-size: clamp(30px, 3.6vw, 48px); line-height: 1;
+  letter-spacing: -.005em; color: var(--ink);
+  font-variant-numeric: tabular-nums; margin: 0;
+}
+.hero-figure.accent { color: var(--info); }
+.hero-label { font-size: 12px; color: var(--ink-dim); margin: var(--s2) 0 0; }
+.hero-stats { display: flex; gap: var(--s6); flex-wrap: wrap; padding-bottom: var(--s1); }
+.hero-stat { display: flex; flex-direction: column; gap: 3px; }
+.hero-stat-num {
+  font-family: var(--font-display); font-weight: 600; font-stretch: 112%;
+  font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
+}
+.hero-stat-label { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.hero-stat-unit { font-size: 13px; font-weight: 600; color: var(--ink-dim); margin-left: 1px; }
+.hero-note { font-size: 11.5px; color: var(--ink-faint); line-height: 1.55; margin: var(--s4) 0 0; max-width: 78ch; }
+
+/* Excluded brands, top-right of the hero row. Shown as removable pills
+   rather than a count, because an exclusion that persists across sessions
+   has to be visible and reversible at a glance -- a silent "3 excluded"
+   is a filter you forget you set and then mistrust the totals over. */
+.excluded { margin-left: auto; max-width: min(520px, 46%); padding-bottom: var(--s1); }
+.excluded-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s2); }
+.excluded-title { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.pill-row { display: flex; flex-wrap: wrap; gap: var(--s1); justify-content: flex-end; }
+.pill {
+  display: inline-flex; align-items: center; gap: var(--s1);
+  font-family: inherit; font-size: 11px; font-weight: 500; line-height: 1;
+  color: var(--ink-dim); background: var(--raised);
+  border: 1px solid var(--edge); border-radius: 999px;
+  padding: 4px var(--s2) 4px 10px; cursor: pointer; max-width: 160px;
+}
+.pill:hover { color: var(--ink); border-color: var(--crit); background: var(--crit-bg); }
+.pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill-x { font-size: 13px; line-height: 1; color: var(--ink-faint); flex: 0 0 auto; }
+.pill:hover .pill-x { color: var(--crit); }
+.pill--more { cursor: default; background: transparent; color: var(--ink-faint); }
+.pill--more:hover { color: var(--ink-faint); border-color: var(--edge); background: transparent; }
+
+/* ---------------------------------------------------------
+   Readout strip
+   ---------------------------------------------------------
+   Cells pack left and wrap; they never stretch. Spreading eight cells
+   across 1900px pushes each number miles from its own label — grouping
+   is what makes them readable, not filling space. */
+/* Self-containing: it carries its own border, so it centres and caps
+   itself rather than sitting inside a .container whose padding would put
+   the border out at the gutter edge. */
+.readout {
+  display: flex; flex-wrap: wrap;
+  width: calc(100% - var(--gutter) * 2);
+  max-width: var(--measure);
+  margin-inline: auto;
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  overflow: hidden;
+}
+.cell {
+  flex: 0 0 auto; min-width: 150px; padding: var(--s3) var(--s4);
+  border-right: 1px solid var(--edge-soft);
+}
+.cell:last-child { border-right: none; }
+.cell-label {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0; white-space: nowrap; font-weight: 600;
+}
+.cell-value {
+  font-family: var(--font-display); font-weight: 600; font-stretch: 112%;
+  font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; margin: var(--s1) 0 0;
+}
+.cell-value.accent { color: var(--info); }
+.cell-sub { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); margin-left: var(--s1); }
+.readout-note { font-size: 11.5px; color: var(--ink-faint); padding-top: var(--s2); }
+.readout-note.filtered { color: var(--info); }
+/* Scoped to the search rather than brand-wide. Deliberately info-blue,
+   not the modifier's amber: narrowing what's counted is a different
+   claim from altering how it's computed. */
+.readout.scoped { border-color: var(--info); box-shadow: inset 0 0 0 1px var(--info-bg); }
+
+/* ---------------------------------------------------------
+   Controls
+   --------------------------------------------------------- */
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s5);
+  padding-block: var(--s5) var(--s4);
+}
+.toolbar-row2 {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s6);
+  padding-block: 0 var(--s5); border-bottom: 1px solid var(--edge); margin-bottom: var(--s5);
+}
+.field { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.field-label {
+  font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.field input[type="text"], .field select {
+  background: var(--surface); border: 1px solid var(--edge); color: var(--ink);
+  font-family: inherit; font-size: 13px; padding: var(--s2) var(--s3);
+  border-radius: var(--radius);
+}
+.field input[type="text"] { width: clamp(160px, 20vw, 240px); }
+.field select { cursor: pointer; }
+.field input::placeholder { color: var(--ink-faint); }
+.field input:focus, .field select:focus { outline: none; border-color: var(--info); box-shadow: 0 0 0 1px var(--info); }
+
+.btn-group { display: flex; gap: 3px; flex-wrap: wrap; }
+.btn-toggle {
+  font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink-dim);
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  padding: var(--s2) var(--s3); cursor: pointer; user-select: none;
+  min-width: 46px; text-align: center; transition: color .12s, border-color .12s, background .12s;
+}
+.btn-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+.btn-toggle.active { color: var(--ink); border-color: var(--info); background: var(--info-bg); }
+/* Wanted by the user but suppressed for width — shown as suppressed
+   rather than silently off, so a vanished group has a visible reason. */
+.btn-toggle.squeezed { color: var(--ink-faint); border-color: var(--edge); background: transparent; border-style: dashed; }
+.btn-icon {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink-dim);
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  padding: var(--s2) var(--s3); cursor: pointer;
+}
+.btn-icon svg { width: 12px; height: 12px; }
+.btn-icon:hover { color: var(--ink); border-color: var(--ink-faint); }
+.btn-icon.active { color: var(--ink); border-color: var(--info); background: var(--info-bg); }
+.count { font-size: 12px; color: var(--ink-dim); margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.count b { color: var(--ink); font-weight: 600; }
+.count-aside { font-size: 11px; color: var(--ink-faint); }
+.count-aside b { color: var(--ink-dim); }
+
+/* Wraps, so three channel groups don't run off a narrow screen. */
+.modifier-set { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s5); }
+.modifier-group { display: flex; align-items: center; gap: var(--s2); }
+.modifier-name { font-size: 12px; color: var(--ink-dim); min-width: 74px; }
+.modifier-vals { display: flex; gap: 3px; }
+.mod-btn {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  padding: 3px var(--s2); cursor: pointer; min-width: 32px; text-align: center;
+}
+.mod-btn.active { color: var(--ink); background: var(--info-bg); border-color: var(--info); font-weight: 600; }
+.data-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+
+/* A modifier off its neutral 1x makes the figures a what-if. Amber,
+   because it's a caution about how the numbers were produced. */
+.modifier-group.changed { outline: 1px solid var(--caution); outline-offset: 3px; border-radius: 3px; }
+.field-label.changed { color: var(--caution); }
+
+.brand-header .export-btn { order: 2; }
+.export-btn {
+  font-family: inherit; font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--ink-dim); background: transparent;
+  border: 1px solid var(--edge); border-radius: var(--radius);
+  padding: var(--s1) var(--s2); cursor: pointer; flex-shrink: 0; white-space: nowrap;
+}
+.export-btn:hover { color: var(--info); border-color: var(--info); }
+.link-btn {
+  background: none; border: none; padding: 0; font: inherit;
+  color: var(--info); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.link-btn:hover { color: var(--ink); }
+
+/* ---------------------------------------------------------
+   Exclude dropdown
+   --------------------------------------------------------- */
+.exclude-dropdown { position: relative; }
+.exclude-dropdown-trigger {
+  display: flex; align-items: center; gap: var(--s2); font-family: inherit; font-size: 13px;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--edge);
+  border-radius: var(--radius); padding: var(--s2) var(--s3); cursor: pointer; white-space: nowrap;
+}
+.exclude-dropdown-trigger.open { border-color: var(--info); }
+.exclude-dropdown-chevron { width: 11px; height: 11px; transition: transform .12s; }
+.exclude-dropdown-trigger.open .exclude-dropdown-chevron { transform: rotate(180deg); }
+.exclude-dropdown-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; width: min(280px, 80vw);
+  background: var(--raised); border: 1px solid var(--edge); border-radius: var(--radius);
+  z-index: 30; box-shadow: var(--shadow-pop);
+}
+.exclude-dropdown-filter {
+  width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--edge-soft);
+  color: var(--ink); font-family: inherit; font-size: 13px; padding: var(--s3);
+}
+.exclude-dropdown-filter:focus { outline: none; }
+.exclude-dropdown-filter::placeholder { color: var(--ink-faint); }
+.exclude-dropdown-list { max-height: 280px; overflow-y: auto; }
+.exclude-dropdown-item {
+  display: flex; align-items: center; gap: var(--s2); font-size: 13px;
+  padding: var(--s2) var(--s3); cursor: pointer; color: var(--ink);
+}
+.exclude-dropdown-item:hover { background: var(--raised-hi); }
+.exclude-dropdown-item.selected { color: var(--ink-faint); text-decoration: line-through; }
+.exclude-dropdown-item input { pointer-events: none; }
+.exclude-suggest-empty { font-size: 12px; padding: var(--s3); color: var(--ink-faint); }
+
+/* ---------------------------------------------------------
+   SIGNATURE — the runway bar
+   ---------------------------------------------------------
+   Weeks of stock, drawn as the runway remaining before a SKU is dry.
+   The app is named for this number and it's the single most
+   decision-relevant fact per row, but as text it can't be scanned
+   across hundreds of rows.
+
+   It flags BOTH failure modes, which is the part that matters in
+   purchasing: running out is one problem, and stock sitting far past
+   the target tick is capital parked on a shelf — also a problem, and
+   invisible in every "low stock" indicator that only warns downward.
+
+   Scale is linear to 24 weeks and clamps beyond, because every real
+   decision lives in the first few weeks; the difference between 40 and
+   60 weeks of cover doesn't change what you order today. */
+.runway { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.runway-track {
+  position: relative; flex: 1 1 auto; min-width: 28px; height: 4px;
+  background: var(--edge-soft); border-radius: 2px; overflow: hidden;
+}
+.runway-track.crit { background: var(--crit-bg); }
+.runway-track.caution { background: var(--caution-bg); }
+/* A sliver stays visible for any non-zero cover, so "nearly out" never
+   collapses into "nothing here". */
+.runway-fill { position: absolute; inset-block: 0; left: 0; border-radius: 2px; min-width: 2px; }
+.runway-fill.crit    { background: var(--crit); }
+.runway-fill.caution { background: var(--caution); }
+.runway-fill.steady  { background: var(--steady); }
+.runway-fill.over    { background: var(--info); opacity: .55; }
+/* Target cover. Fill short of it is thin cover; fill well past it is
+   money asleep. */
+.runway-tick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--ink-faint); opacity: .55; }
+.runway-val {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; min-width: 34px; text-align: right;
+}
+.runway-val.crit { color: var(--crit); }
+.runway-val.caution { color: var(--caution); }
+.runway-val.over { color: var(--info); }
+.runway-empty { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+
+/* ---------------------------------------------------------
+   Shared table bits
+   --------------------------------------------------------- */
+.dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: var(--s1); }
+.dot-uae { background: var(--mkt-uae); }
+.dot-qat { background: var(--mkt-qat); }
+.dot-ksa { background: var(--mkt-ksa); }
+.dot-showroom { background: var(--mkt-showroom); }
+.dot-distribution { background: var(--mkt-distribution); }
+.dot-ecommerce { background: var(--mkt-ecommerce); }
+.dot-global { background: var(--ink-dim); }
+.dot-brand-a { background: var(--mkt-brand-a); }
+.dot-brand-b { background: var(--mkt-brand-b); }
+.dot-brand-c { background: var(--mkt-brand-c); }
+.dot-brand-d { background: var(--mkt-brand-d); }
+.sort-arrow { display: inline-block; margin-left: 3px; font-size: 9px; }
+.tablewrap { overflow-x: auto; }
+.no-data { color: var(--ink-faint); }
+
+/* ---------------------------------------------------------
+   Demand Glance — one card per brand
+   ---------------------------------------------------------
+   auto-fill rather than a fixed 1fr 1fr: a wide monitor gets a third
+   column instead of two very wide cards, which is the whole answer to
+   "should this stretch?". It shouldn't — it should fit more. */
+.brand-list {
+  display: grid; gap: var(--s2); margin-top: var(--s4);
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+.brand-card {
+  border: 1px solid var(--edge); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+  transition: border-color .12s;
+}
+.brand-card:hover { border-color: var(--ink-faint); }
+/* Spans the row so the table has room, but capped to the table's own
+   measure: left at full grid width the card was 28% empty surface with
+   row hairlines stopping mid-card, which reads as broken layout. Empty
+   page beside a card is ordinary; empty card is not. */
+.brand-card.expanded { grid-column: 1 / -1; max-width: 1292px; border-color: var(--info); }
+/* Two rows, always: name and figures each get a full line. On one line
+   the three stats plus the export button squeezed the brand name to zero
+   width at four columns -- and the name is the thing you're looking for.
+   Stacking also lines the figures up column-to-column across cards, so
+   they can be compared down the grid rather than read one card at a
+   time. */
+.brand-header {
+  display: flex; flex-wrap: wrap; align-items: center;
+  column-gap: var(--s3); row-gap: var(--s3);
+  padding: var(--s3) var(--s3) var(--s4) var(--s4);
+  cursor: pointer; user-select: none; border-left: 2px solid transparent;
+}
+.brand-card.expanded .brand-header { border-left-color: var(--info); background: var(--raised); }
+.brand-card:hover .brand-header { background: var(--raised); }
+.brand-chevron { width: 10px; font-size: 10px; color: var(--ink-faint); transition: transform .12s; flex-shrink: 0; }
+.brand-chevron.open { transform: rotate(90deg); }
+/* Rank makes reading direction irrelevant. In a multi-column grid of
+   similar cards nothing says whether to read across or down, so the order
+   has to be held in your head; a sequence you can follow removes the
+   question entirely. Shown only for magnitude sorts -- under an
+   alphabetical sort a rank number carries no ranking information.
+   Tabular mono so 1 and 11 occupy the same box and the names stay
+   flush. */
+/* A badge, not a dim numeral. Grey put the rank at the same weight as
+   every other secondary figure on an already grey-heavy card, so the one
+   element whose job is to be found first was the easiest to miss. The
+   hash makes it read as a rank rather than a quantity. */
+.brand-rank {
+  order: -1; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; padding: 3px 6px; border-radius: 3px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1;
+  color: var(--info); background: var(--info-bg);
+}
+.brand-rank::before { content: '#'; opacity: .55; margin-right: 1px; }
+/* Top three carry most of the spend — solid, so they're found before
+   anything is read. */
+.brand-rank.top { color: var(--ground); background: var(--info); font-weight: 700; }
+.brand-rank.top::before { opacity: .6; }
+.brand-chevron { order: 0; }
+.brand-name {
+  order: 1; font-family: var(--font-display); font-weight: 700; font-stretch: 112%; font-size: 13.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink);
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Equal thirds on their own row, so the same figure sits at the same x
+   in every card and the grid can be read as columns. Each stat centres
+   within its third: left-aligned, a 3-digit SKU count and a 10-character
+   currency value start at the same x but end nowhere near each other, so
+   the short figures looked pushed left against the wide one. */
+.brand-glance { order: 3; flex: 1 1 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.glance-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+/* Deliberately dimmer than the brand name. At the same brightness the
+   card read as one undifferentiated block of white and there was no way
+   to scan brands alone -- the eye caught on every figure. Hierarchy is
+   now: brand name (brightest) > net value (signal blue) > supporting
+   counts (dim). */
+.glance-num {
+  font-family: var(--font-display); font-weight: 600; font-stretch: 108%; font-size: 15px;
+  color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1;
+}
+.glance-num.accent { color: var(--info); }
+.glance-label { font-size: 9px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-faint); }
+
+/* Capped with its own scroll: an expanded brand with 100+ SKUs would
+   otherwise push every card below it off the page. */
+.tablewrap--card { max-height: 460px; overflow-y: auto; border-top: 1px solid var(--edge); }
+.tablewrap--card .dg-table thead th { position: sticky; top: 0; z-index: 1; }
+
+/* Capped rather than stretched to the card. Expanded, the card is the
+   full grid width (1720px at 1920), and a five-column table spread over
+   that gave the Item column 637px of slack while pushing Net order to
+   within 10px of the scrollbar — a long eye-journey to the one figure the
+   row exists for. A bounded measure keeps the identifier and its decision
+   number in the same glance. */
+.dg-table { width: 100%; max-width: 1240px; border-collapse: collapse; min-width: 820px; }
+/* Clear of the vertical scrollbar, which the capped-height card always has. */
+.dg-table th:last-child, .dg-table td:last-child { padding-right: var(--s5); }
+.dg-table thead th {
+  text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-faint); padding: var(--s2) var(--s3);
+  background: var(--raised); border-bottom: 1px solid var(--edge); white-space: nowrap;
+}
+.dg-table thead th.num, .dg-table thead th.gauge { text-align: right; }
+.dg-table thead th.sortable { cursor: pointer; user-select: none; }
+.dg-table thead th.sortable:hover { color: var(--ink-dim); }
+.dg-table thead th.sortable.active { color: var(--info); }
+.dg-table tr.item-row { border-bottom: 1px solid var(--edge-soft); }
+.dg-table tr.item-row:hover { background: var(--raised); }
+.dg-table tr.item-row:last-child { border-bottom: none; }
+.dg-table td { padding: var(--s3); vertical-align: middle; }
+.item-name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; display: block; }
+/* The SKU is the thing you actually order against and the thing you copy
+   out, so it can't be the smallest, faintest text on the row. */
+.item-code { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); margin-top: 3px; letter-spacing: .01em; }
+.gauge-cell { display: flex; align-items: center; justify-content: flex-end; gap: var(--s2); }
+.rate { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--ink-dim); text-align: right; }
+.rate.up { color: var(--steady); } .rate.down { color: var(--crit); } .rate.none { color: var(--ink-faint); }
+.wks { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+.qty-value-line { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); text-align: right; margin-top: 3px; white-space: nowrap; }
+.stock-line { color: var(--ink-faint); font-size: 10.5px; }
+.stock-line.stock-low { color: var(--crit); }
+.net {
+  font-family: var(--font-display); font-weight: 700; font-stretch: 112%; font-size: 17px;
+  text-align: right; color: var(--info); font-variant-numeric: tabular-nums;
+}
+.net-value { display: block; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); text-align: right; font-weight: 400; margin-top: 2px; }
+.dir-tag { display: inline-flex; align-items: center; gap: 3px; }
+.dir-arrow { font-size: 9px; }
+.dir-arrow.up { color: var(--steady); } .dir-arrow.down { color: var(--crit); } .dir-arrow.flat { color: var(--ink-faint); }
+
+/* ---------------------------------------------------------
+   Forecast Analytics — the comparison matrix
+   --------------------------------------------------------- */
+.fa-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.fa-table thead th {
+  text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint); padding: var(--s1) var(--s2);
+  border-bottom: 1px solid var(--edge-soft); white-space: nowrap;
+  position: sticky; z-index: 2; background: var(--ground);
+}
+.fa-table thead tr.group-row th {
+  padding: 0 var(--s2) var(--s1); border-bottom: none;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--ink-dim); top: 0;
+}
+.fa-table thead tr.sub-row th { border-bottom: 1px solid var(--edge); cursor: pointer; user-select: none; top: 20px; }
+/* Stock Analysis' item table has only one header row, no group-row above
+   it -- inheriting sub-row's 20px offset (meant to sit below a real
+   20px-tall group-row) left it sticking 20px too low, clipping into the
+   first data row. */
+.fa-table.single-header thead tr.sub-row th { top: 0; }
+.fa-table thead tr.sub-row th:hover { color: var(--ink-dim); }
+.fa-table thead tr.sub-row th.active { color: var(--info); }
+.fa-table thead tr.group-row th.blk-start, .fa-table thead tr.sub-row th.blk-start { border-left: 1px solid var(--edge-soft); }
+.fa-table thead th.col-code, .fa-table thead th.col-name { text-align: left; }
+.fa-table tbody tr.item-row { height: 32px; border-bottom: 1px solid var(--edge-soft); }
+.fa-table tbody tr.item-row:hover { background: var(--raised); }
+/* A selected row drives what the charts above show, so it needs to read
+   as selected from across the page -- hover alone said only "the mouse
+   is here". The accent bar is on the first cell because a border on a
+   collapsed <tr> is not painted. */
+.fa-table tbody tr.item-row.selected,
+.dg-table tbody tr.item-row.selected { background: var(--raised-hi); }
+.fa-table tbody tr.item-row.selected > td:first-child,
+.fa-table tbody tr.item-row.selected > th:first-child,
+.dg-table tbody tr.item-row.selected > td:first-child {
+  box-shadow: inset 2px 0 0 var(--info);
+}
+.fa-table tbody tr.item-row.selected td,
+.dg-table tbody tr.item-row.selected td { color: var(--ink); }
+.fa-table td {
+  padding: var(--s1) var(--s2); text-align: center; font-family: var(--font-mono);
+  font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.fa-table td.col-code, .fa-table td.col-name { text-align: left; }
+/* Codes are measured to fit the longest in view and must never clip —
+   a truncated SKU can't be ordered against. Names clip instead. */
+.fa-table td.col-code { color: var(--ink-dim); font-size: 12px; overflow: visible; text-overflow: clip; }
+/* Ellipsis by actual rendered width, not a fixed character count -- this
+   is what makes nameW's flex genuinely useful: a wider column shows more
+   of the name, not just more blank space after an already-truncated
+   string. Full name still reaches the DOM for the title tooltip. */
+.fa-table td.col-name {
+  color: var(--ink); font-family: var(--font-body); font-size: 12.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fa-table td.blk-start { border-left: 1px solid var(--edge-soft); }
+.fa-table td.zero { color: var(--ink-faint); }
+.fa-table td.neg { color: var(--crit); }
+.fa-table td.pos { color: var(--steady); }
+/* Roll-up columns get a tint so the eye finds them without counting
+   across a very wide table. */
+.fa-table td.global-col { color: var(--ink); font-weight: 600; background: var(--tint-global); }
+.fa-table thead tr.sub-row th.global-col { background: var(--tint-global-head); }
+.fa-table td.value-col { color: var(--ink); background: var(--tint-value); }
+.fa-table thead tr.sub-row th.value-col { background: var(--tint-value-head); }
+.rate-cell { display: flex; align-items: center; justify-content: center; gap: var(--s1); }
+.method-tag {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .04em; padding: 0 3px;
+  border-radius: 2px; border: 1px solid var(--edge); color: var(--ink-faint);
+}
+.method-tag.holt { color: var(--info); border-color: var(--line-info); }
+
+.legend { display: flex; gap: var(--s5); padding-top: var(--s3); font-size: 11px; color: var(--ink-faint); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: var(--s2); }
+
+/* ---------------------------------------------------------
+   Charts
+   --------------------------------------------------------- */
+.chart-bar { display: flex; align-items: center; gap: var(--s2); padding-top: var(--s4); flex-wrap: wrap; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); margin-top: var(--s4); }
+@media (max-width: 1200px) { .chart-grid { grid-template-columns: 1fr; } }
+.chart-card {
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  padding: var(--s4) var(--s5); margin-top: var(--s4);
+}
+.chart-grid .chart-card { margin-top: 0; }
+.chart-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: var(--s2);
+}
+.chart-title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.chart-title-row .chart-title { margin-bottom: 0; }
+.seg-toggle { display: flex; gap: var(--s1); margin-bottom: var(--s2); }
+.seg-toggle .btn-toggle { padding: 2px var(--s2); font-size: 10px; }
+.chart-legend { display: flex; align-items: center; gap: var(--s4); font-size: 11px; color: var(--ink-dim); margin-bottom: var(--s2); flex-wrap: wrap; }
+.chart-legend-item { display: flex; align-items: center; gap: var(--s1); }
+.dash-swatch {
+  display: inline-block; width: 14px; height: 0; margin-right: var(--s1);
+  border-top: 2px dashed var(--ink-dim);
+}
+/* The consolidating total line's swatch -- the same dashes and the same
+   weight as the line itself, so the legend is a sample of the drawing
+   rather than a differently-styled label for it. */
+.total-swatch {
+  display: inline-block; width: 14px; height: 0; margin-right: var(--s1);
+  border-top: 1.5px dashed var(--ink-faint);
+}
+/* Codes in these tables CLIP; in Forecast Analytics they do not.
+   That table measures its code column to fit the longest code in view
+   (codeW feeding a <colgroup>) and can therefore promise never to
+   truncate. These tables have no such measurement, and real codes reach
+   45 characters -- OBMT-OBM-F900GS/F850GS/F800GS/F750GS-PC-E4-BL, about
+   324px -- so col-code's `overflow: visible` does not protect the code,
+   it just spills it over the item name beside it. The full code stays in
+   the cell's title and in the CSV export. */
+.mr-table td.col-code { overflow: hidden; text-overflow: ellipsis; }
+
+/* A long table should cost scroll inside itself, not push everything
+   below it off the page. Stock Placement can be 4,102 rows at the
+   default scope and 14,574 at "all", and Demand Glance already caps its
+   own table this way (.tablewrap--card).
+   Viewport-relative rather than a fixed pixel height: the point is "most
+   of a screen, never all of it", which is a different number of rows on
+   a laptop than on a monitor. The head is already sticky at top 0 via
+   .fa-table.single-header, so it survives the scroll. */
+.table-wrap--clipped {
+  max-height: min(68vh, 900px);
+  overflow-y: auto;
+  border-bottom: 1px solid var(--edge);
+}
+
+/* The mirror panel's swatch. Solid and thinner than the series above
+   it: the lower panel is drawn at a lighter weight, and the legend is a
+   sample of the drawing rather than a differently-styled label for it.
+   It carries no colour of its own -- the mirror reuses the market
+   colours from the panel above, so only the measure needs naming. */
+.mirror-swatch {
+  display: inline-block; width: 14px; height: 0; margin-right: var(--s1);
+  border-top: 1.5px solid var(--ink-dim);
+}
+/* Pushed to the end of the legend row so the series it decorates stay
+   grouped, and separated by a rule because it names a different panel
+   rather than another line in the same one. */
+.chart-legend-item--mirror {
+  margin-left: var(--s2); padding-left: var(--s3);
+  border-left: 1px solid var(--edge); color: var(--ink-dim);
+}
+.trend-tip-row--mirror { color: var(--ink-dim); }
+.trend-tip-alt--mirror { opacity: 0.8; display: inline-flex; gap: 4px; align-items: baseline; }
+/* Names the figure next to it without competing with it. */
+.trend-tip-alt-tag {
+  font-family: var(--font-sans, inherit); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint);
+}
+
+/* The legend sits above a plot, not in a control bar, so the toggle that
+   lives there has to be quieter than a filter button: it pushes right so
+   the series names read as a group, and it drops to the legend's own
+   size rather than standing a row open on its own. */
+.btn-toggle--mini {
+  margin-left: auto; min-width: 0; font-size: 11px;
+  padding: 2px var(--s2); line-height: 1.5;
+}
+.trend-tip-row--total { color: var(--ink-faint); }
+.chart-empty { text-align: center; color: var(--ink-faint); font-size: 12px; padding: var(--s7) 0; }
+
+/* ---------------------------------------------------------
+   Stock Analysis -- Power-BI-style two-column layout: a compact,
+   fixed-height scrollable brand list on the left (so 200+ brands don't
+   expand the page), KPI/donut/country-chart on the right that re-scope
+   to whatever's selected, full-width item table below both.
+   --------------------------------------------------------- */
+/* align-items: stretch (the default, but stated explicitly since it's
+   load-bearing here): the brand panel and the right column sit in the
+   same grid row, so the row's height is the TALLER of the two natural
+   heights, and stretch makes the shorter one match it -- brand-panel
+   height (rank list) drives stock-right's total height. */
+/* align-items: start, not stretch -- stretch would make Grid resize
+   .stock-right to match whatever explicit height the ResizeObserver
+   just set on .stock-brand-panel (its sibling in this same grid row),
+   which the observer then sees as a height CHANGE on .stock-right and
+   reacts to by setting an even taller panel height, and so on: a real,
+   confirmed-live feedback loop between the two columns that grew the
+   panel past 9000px. With start, .stock-right sizes purely from its own
+   content, and the JS-measured match stays a one-way relationship. */
+.stock-layout { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: var(--s4); align-items: start; }
+@media (max-width: 900px) { .stock-layout { grid-template-columns: 1fr; } }
+
+.stock-brand-panel {
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.stock-brand-panel-head {
+  padding: var(--s3) var(--s4); border-bottom: 1px solid var(--edge);
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim);
+  display: flex; justify-content: space-between; align-items: center;
+}
+/* flex: 1, no min-height -- the list fills whatever height the panel
+   already gets from CSS Grid stretch (matching the right column's
+   natural height), never dictating a floor of its own. A min-height
+   here was tried and reverted: it inflated the PANEL's own intrinsic
+   size, which could in turn stretch the whole grid row (and the right
+   column with it) taller than the right side actually needed, growing
+   the layout rather than just filling slack within it. overflow-y:auto
+   keeps it a capped, scrollable wrapper regardless of how many brands
+   exist -- never render all 185 unbounded. */
+.stock-brand-list { flex: 1; min-height: 0; overflow-y: auto; }
+.stock-brand-row {
+  display: flex; align-items: flex-start; gap: var(--s2);
+  width: 100%; text-align: left; background: transparent; border: none;
+  border-bottom: 1px solid var(--edge); padding: var(--s2) var(--s4); cursor: pointer; color: var(--ink);
+  font: inherit;
+}
+.stock-brand-list .stock-brand-row:last-child { border-bottom: none; }
+.stock-brand-row:hover { background: var(--raised); }
+.stock-brand-row.selected { background: var(--info-bg); border-left: 2px solid var(--info); padding-left: calc(var(--s4) - 2px); }
+/* A literal checkbox, not just a background tint -- multi-select needs
+   an indicator that reads unambiguously as "on" per row at a glance,
+   rather than relying on a subtle tint that's easy to misread, especially
+   scanning down a list where several rows can be selected at once. */
+.stock-brand-check {
+  flex: 0 0 auto; width: 14px; height: 14px; margin-top: 2px;
+  border: 1.5px solid var(--ink-faint); border-radius: 3px; box-sizing: border-box;
+}
+.stock-brand-check.checked {
+  border-color: var(--info); background: var(--info);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.5l2.5 2.5L11 4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: center;
+}
+.stock-brand-rank {
+  flex: 0 0 auto; width: 18px; padding-top: 1px; text-align: right;
+  font-size: 11px; font-weight: 600; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.stock-brand-main { flex: 1; min-width: 0; }
+.stock-brand-name { display: block; font-weight: 600; font-size: 13px; }
+.stock-brand-value { display: block; font-size: 11px; color: var(--ink-dim); margin: 2px 0 var(--s1); }
+.stock-brand-empty { padding: var(--s5) var(--s4); text-align: center; color: var(--ink-faint); font-size: 12px; }
+
+/* No height: 100% here -- that was the actual bug behind the country
+   card rendering at 9563px tall. .stock-right's height must come purely
+   from its own content (KPI row + chart-row, driven by the treemap's
+   TREEMAP_VH aspect ratio) so it's a well-defined, non-circular number;
+   the JS-measured brand-panel height (see the component's ResizeObserver)
+   depends on that being true. A height:100% here would try to derive
+   this element's size from the very grid row that CSS Grid's own
+   align-items:stretch derives FROM this element's natural size --
+   three of these nested (here, chart-row, and stock-country-card) is
+   what produced the runaway height. */
+.stock-right { display: flex; flex-direction: column; gap: var(--s3); }
+.stock-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); flex: 0 0 auto; }
+.stock-kpi-tile {
+  background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius); padding: var(--s3) var(--s4);
+}
+.stock-kpi-num { font-size: 21px; font-weight: 700; display: block; line-height: 1.2; }
+.stock-kpi-label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+
+/* No flex: 1 -- .stock-right no longer has an explicit height for this
+   to distribute extra space within (see its own comment). This grid's
+   row height is now simply whatever the taller of its two children
+   naturally needs (the treemap, via TREEMAP_VH's aspect ratio), and
+   align-items:stretch matches the shorter one (the country card) to it
+   -- ordinary, non-circular Grid stretch, not a percentage-height chain.
+   Treemap card given more weight than the country card (1.6fr vs 1fr) --
+   it was reading as small/secondary next to a legend that took up more
+   room than the map itself. */
+.stock-chart-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--s3); align-items: stretch; }
+@media (max-width: 700px) { .stock-chart-row { grid-template-columns: 1fr; } }
+/* .chart-card's base rule (shared with Forecast Analytics) adds a
+   margin-top meant for .chart-grid's stacked-cards layout; inside this
+   grid it just ate 32px of both cards' height for no reason -- both
+   cards got it equally, so it wasn't a mismatch between them, just
+   wasted space in each. */
+.stock-chart-row .chart-card { margin-top: 0; }
+
+.stock-treemap-outer { position: relative; }
+.stock-treemap { position: relative; width: 100%; border-radius: var(--radius); overflow: hidden; }
+.stock-treemap-cell {
+  position: absolute; box-sizing: border-box; border: 2px solid var(--surface);
+  transition: opacity .12s;
+}
+/* outline, not a border change -- doesn't shift the cell's own box (an
+   active cell's dimensions must stay identical to its unselected state,
+   since they're driven by the same squarify rect either way), and
+   outline-offset pulls it inward so .stock-treemap's overflow:hidden
+   doesn't clip it off at the container edge. */
+.stock-treemap-cell.selected { outline: 2px dashed var(--ink); outline-offset: -4px; z-index: 2; }
+/* Sibling of .stock-treemap, not a child -- .stock-treemap's own
+   overflow:hidden would otherwise clip a tooltip trying to render past
+   the edge of whichever cell is hovered. */
+.stock-treemap-tooltip {
+  position: absolute; transform: translate(-50%, -50%);
+  background: var(--ground); color: var(--ink); border: 1px solid var(--edge);
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: var(--radius);
+  white-space: nowrap; pointer-events: none; z-index: 5; box-shadow: var(--shadow-pop);
+}
+/* Compact and secondary on purpose -- this used to be as roomy as the
+   map it's labeling, which is backwards: the map is the visual, the
+   legend is just a lookup for it. */
+.stock-treemap-legend {
+  display: flex; flex-wrap: wrap; gap: 2px var(--s3);
+  margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--edge-soft);
+  font-size: 10.5px; line-height: 1.6;
+}
+.stock-treemap-legend-item { display: flex; align-items: center; gap: 4px; color: var(--ink-dim); }
+.stock-treemap-legend-item.active { color: var(--ink); font-weight: 600; }
+
+.stock-country-bar { padding: var(--s1) 0; cursor: pointer; border-radius: var(--radius); }
+.stock-country-bar-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.stock-country-bar.dim { opacity: 0.4; }
+/* Same visual language as the treemap's selected cell -- a dashed
+   outline, not just dimming the OTHER bars, so a selected bar reads as
+   selected on its own rather than by process of elimination. */
+.stock-country-bar.selected { outline: 2px dashed var(--info); outline-offset: 2px; }
+.stock-country-bar.selected .stock-country-bar-head { font-weight: 700; }
+/* True 50/50 split, not "top gets its natural height, bottom gets
+   whatever's left" -- that first version gave the chart half nearly all
+   the card's height (the country bars are short), leaving the chart
+   itself stranded at the top of a mostly-empty lower region. flex: 1 on
+   both halves with min-height: 0 (so neither's own content can force it
+   larger than its share) is what actually makes them equal. justify-
+   content: center on each half is what actually centers their content
+   vertically -- the halves are taller than their own content, by design. */
+/* No height: 100% -- CSS Grid's align-items:stretch on .stock-chart-row
+   already gives this a definite, correctly-computed box height (it's a
+   real layout box at that point, not a percentage needing further
+   resolution); declaring height:100% again on top of that fed back into
+   the row-height calculation that stretch itself produced, which is
+   what actually caused the 9563px runaway height found live. The 50/50
+   internal split (stock-country-card-top / stock-receipt-chart-wrap,
+   both flex:1) still works correctly against the height Grid already
+   established here. */
+.stock-country-card { display: flex; flex-direction: column; }
+.stock-country-card-top {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--s4);
+}
+.stock-country-group { flex: 0 0 auto; }
+.stock-receipt-chart-wrap {
+  flex: 1; min-height: 0;
+  margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--edge-soft);
+  display: flex; flex-direction: column; justify-content: center;
+}
+
+.stock-kpi-sub { display: block; font-size: 10px; color: var(--ink-faint); margin-top: 2px; line-height: 1.3; }
+
+/* ---------------------------------------------------------
+   Small utilities
+   --------------------------------------------------------- */
+.freshness { display: inline-flex; align-items: center; gap: var(--s2); font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+.freshness-unknown { color: var(--caution); }
+.omitted-note { font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+
+.code-cell { display: inline-flex; align-items: center; gap: var(--s1); }
+.copy-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex: 0 0 16px; padding: 0;
+  background: none; border: none; cursor: pointer;
+  color: var(--ink-faint); opacity: 0; transition: opacity .12s, color .12s;
+}
+.copy-btn svg { width: 11px; height: 11px; }
+tr:hover .copy-btn, .brand-header:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+.copy-btn:hover { color: var(--info); }
+.copy-btn.copied { opacity: 1; color: var(--steady); }
+
+.spinner {
+  display: inline-block; width: 11px; height: 11px; vertical-align: -1px;
+  border: 1.5px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------------
+   Responsive
+   ---------------------------------------------------------
+   Three real breakpoints, each answering a different question.
+
+   Laptop (<=1440px): the most common screen for this work. Nothing is
+   removed, spacing tightens.
+
+   Tablet (<=900px): the matrix stops fitting honestly. Cards go single
+   column; tables scroll with the identifying column pinned.
+
+   Phone (<=640px): analysis isn't possible and pretending otherwise
+   helps nobody — but blocking the app is worse, because looking a SKU
+   up on the warehouse floor is a real thing people do. So the phone
+   gets a genuine lookup mode: brand totals, per-SKU cards, search and
+   copy. The matrix is deferred to a desktop, stated plainly once. */
+
+@media (max-width: 1440px) {
+  .page-head { padding-block: var(--s5) var(--s4); }
+  .hero-row { gap: var(--s6); }
+  .toolbar { gap: var(--s4); }
+  .brand-list { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  /* Topbar rules deliberately absent: they live in the Responsiveness
+     section near the top, which is the one place that owns them. */
+  .brand-list { grid-template-columns: 1fr; }
+  .hero-row { gap: var(--s5); }
+  .hero-stats { gap: var(--s5); }
+  .readout { flex-wrap: wrap; }
+  .cell { flex: 1 1 140px; }
+  /* Pin the identifying column so a scrolled row still says what it is. */
+  .dg-table td:first-child, .dg-table thead th:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--surface);
+  }
+  .dg-table thead th:first-child { background: var(--raised); }
+}
+
+/* =========================================================
+   Small screens: prioritise, do not compress.
+
+   The rule everywhere below is the same -- show the most relevant thing
+   at a readable size and let the rest be reachable, rather than fitting
+   everything on screen at a size nobody can read.
+   ========================================================= */
+@media (max-width: 900px) {
+  /* Columns size to their content and the wrapper scrolls, instead of
+     table-layout: fixed dividing 390px by eight and giving each column
+     three characters. Nothing is hidden; it is one swipe away, which is
+     the trade this app already made on Demand Glance. */
+  .tablewrap table.fa-table,
+  .tablewrap table.dg-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+  }
+  /* The identifying column stays put, so a scrolled row still says what
+     it is -- the same reason .dg-table already pinned its own. */
+  .tablewrap table.fa-table tbody td.col-name,
+  .tablewrap table.fa-table thead th.col-name {
+    position: sticky; left: 0; z-index: 2;
+    background: var(--surface);
+  }
+  .tablewrap table.fa-table thead th.col-name { background: var(--raised); }
+  /* A number is the point of a KPI tile; the caption under it is
+     context. When nothing is filtered that caption is the same sentence
+     on every tile, so it is clamped to one line rather than given three.
+     The full text stays in the DOM for anyone who taps or hovers. */
+  .stock-kpi-scope {
+    display: block; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 640px) {
+  :root { --gutter: 14px; }
+  /* Topbar rules deliberately absent -- see the Responsiveness section. */
+  .page-head { padding-block: var(--s4) var(--s3); }
+  .hero-row { gap: var(--s4); align-items: flex-start; flex-direction: column; }
+  .excluded { margin-left: 0; max-width: none; width: 100%; }
+  .pill-row { justify-content: flex-start; }
+  .hero-stats { gap: var(--s5); }
+  .toolbar, .toolbar-row2 { gap: var(--s3); }
+  .field { width: 100%; }
+  .field input[type="text"], .field select { width: 100%; }
+  .count { margin-left: 0; }
+  /* Two compact columns, not eight full-width blocks. Stacked, the
+     Forecast Analytics readout turned eight small figures into eight
+     phone-sized cards and pushed the actual table off the bottom of the
+     screen -- these are supporting numbers, not headlines. */
+  .readout { display: grid; grid-template-columns: 1fr 1fr; }
+  .cell {
+    min-width: 0; padding: var(--s2) var(--s3);
+    border-right: 1px solid var(--edge-soft); border-bottom: 1px solid var(--edge-soft);
+  }
+  .cell:nth-child(2n) { border-right: none; }
+  .cell-value { font-size: 15px; }
+  .cell-label { font-size: 9px; white-space: normal; }
+
+  /* The item table becomes cards: a table this wide cannot be read on a
+     phone, and horizontal scrolling through eight columns to find one
+     figure is worse than no table at all. Each row becomes a labelled
+     block using the header text carried in data-label. */
+  .tablewrap--card { max-height: none; overflow: visible; }
+  .dg-table { min-width: 0; display: block; }
+  .dg-table thead { display: none; }
+  .dg-table tbody, .dg-table tr.item-row { display: block; }
+  .dg-table tr.item-row {
+    border: 1px solid var(--edge); border-radius: var(--radius);
+    margin: var(--s3); padding: var(--s3); background: var(--surface);
+  }
+  /* A grid, not a flex row: a country cell holds three stacked pieces
+     (rate, demand, runway) and flex would lay them out side by side and
+     overflow the screen. Label occupies column one; every real child
+     stacks down column two. */
+  .dg-table td {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline; column-gap: var(--s3); row-gap: 2px;
+    padding: var(--s2) 0; text-align: right;
+  }
+  .dg-table td::before {
+    content: attr(data-label); grid-column: 1; grid-row: 1;
+    font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: left;
+  }
+  .dg-table td > * { grid-column: 2; min-width: 0; }
+  .dg-table td:first-child { display: block; text-align: left; padding-bottom: var(--s2); border-bottom: 1px solid var(--edge-soft); margin-bottom: var(--s2); }
+  .dg-table td:first-child > * { min-width: 0; }
+  .dg-table td:first-child::before { display: none; }
+  .item-name { white-space: normal; max-width: none; }
+  .gauge-cell { justify-content: flex-end; }
+  .copy-btn { opacity: 1; }   /* no hover on touch */
+
+  .chart-card { padding: var(--s3); }
+  .legend { gap: var(--s3); }
+}
+
+/* Stated once, on the page it applies to, rather than as a blocking
+   wall. The rest of the app still works on a phone. */
+.small-screen-note {
+  display: none;
+  align-items: flex-start; gap: var(--s2);
+  background: var(--caution-bg); border: 1px solid var(--line-caution);
+  border-radius: var(--radius); padding: var(--s3) var(--s4);
+  font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin-top: var(--s4);
+}
+@media (max-width: 900px) { .small-screen-note { display: flex; } }
+
+/* ---------------------------------------------------------
+   Freshness badge — did last night's pull work?
+   ---------------------------------------------------------
+   In the header because it answers a question you'd otherwise never think
+   to ask until the numbers were already wrong. The dot carries the
+   verdict, the age carries the detail. */
+.freshness-badge {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  font-size: 11.5px; color: var(--ink-dim); white-space: nowrap;
+  padding: var(--s1) var(--s3);
+  border: 1px solid var(--edge); border-radius: 999px;
+  cursor: default;
+}
+.fresh-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.fresh-dot--ok { background: var(--steady); }
+.fresh-dot--warn { background: var(--caution); }
+.fresh-dot--bad { background: var(--crit); }
+.fresh-dot--unknown { background: var(--ink-faint); }
+.fresh-label { font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
+.fresh-age { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+/* Anything other than healthy borrows its signal colour, so a bad state is
+   visible without reading the words. */
+.freshness-badge.is-stale { border-color: var(--crit); color: var(--crit); }
+.freshness-badge.is-stale .fresh-age { color: var(--crit); }
+.freshness-badge.is-partial { border-color: var(--caution); color: var(--caution); }
+.freshness-badge.is-partial .fresh-age { color: var(--caution); }
+
+/* ---------------------------------------------------------
+   Options menu
+   --------------------------------------------------------- */
+.options { position: relative; }
+.options-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 30px; padding: 0; cursor: pointer;
+  background: transparent; border: 1px solid var(--edge); border-radius: var(--radius);
+  color: var(--ink-dim);
+}
+.options-trigger:hover, .options-trigger.open { color: var(--ink); border-color: var(--ink-faint); }
+.hamburger { display: inline-flex; flex-direction: column; gap: 3px; width: 14px; }
+.hamburger i { display: block; height: 1.5px; background: currentColor; border-radius: 1px; }
+
+.options-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; width: 268px; z-index: 50;
+  background: var(--raised); border: 1px solid var(--edge);
+  border-radius: var(--radius); box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.options-who {
+  padding: var(--s3); font-size: 11px; color: var(--ink-faint);
+  border-bottom: 1px solid var(--edge-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.options-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  width: 100%; padding: var(--s3); background: none; border: none;
+  font-family: inherit; font-size: 13px; color: var(--ink);
+  text-align: left; cursor: pointer;
+}
+.options-item:hover:not(:disabled) { background: var(--raised-hi); }
+.options-item:disabled { color: var(--ink-faint); cursor: default; }
+.options-value { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); }
+.options-item--danger { border-top: 1px solid var(--edge-soft); color: var(--crit); }
+.options-item--danger:hover { background: var(--crit-bg); }
+
+/* The confirm lives inline rather than in a dialog: it is one sentence,
+   and a modal for it would be heavier than the decision. */
+.options-confirm { padding: var(--s3); border-top: 1px solid var(--edge-soft); background: var(--caution-bg); }
+.options-confirm p { margin: 0 0 var(--s3); font-size: 12px; line-height: 1.5; color: var(--ink-dim); }
+.options-confirm-actions { display: flex; gap: var(--s2); justify-content: flex-end; }
+
+/* ---------------------------------------------------------
+   Toasts
+   --------------------------------------------------------- */
+.toast-stack {
+  position: fixed; right: var(--s5); bottom: var(--s5); z-index: 100;
+  display: flex; flex-direction: column; gap: var(--s2); max-width: min(400px, calc(100vw - 2 * var(--s5)));
+}
+.toast {
+  display: flex; align-items: flex-start; gap: var(--s3);
+  background: var(--raised); border: 1px solid var(--edge); border-left-width: 3px;
+  border-radius: var(--radius); box-shadow: var(--shadow-pop);
+  padding: var(--s3) var(--s4); font-size: 12.5px; line-height: 1.45; color: var(--ink);
+  animation: toast-in .18s ease-out;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.toast--info { border-left-color: var(--info); }
+.toast--good { border-left-color: var(--steady); }
+.toast--warn { border-left-color: var(--caution); }
+.toast--bad  { border-left-color: var(--crit); }
+.toast-x {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--ink-faint); font-size: 16px; line-height: 1; flex: 0 0 auto;
+}
+.toast-x:hover { color: var(--ink); }
+
+@media (max-width: 640px) {
+  .toast-stack { right: var(--s3); left: var(--s3); bottom: var(--s3); max-width: none; }
+  .fresh-label { display: none; }
+}
+
+/* ---------------------------------------------------------
+   Stock Analysis
+   --------------------------------------------------------- */
+.selected-row { background: var(--info-bg); }
+.selected-row:hover { background: var(--info-bg); }
+
+/* Physical proportion of the catalog's stock value one brand holds --
+   same "length encodes magnitude" idea as the runway bar. */
+.share-track { height: 3px; background: var(--edge-soft); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.share-fill { height: 100%; background: var(--info); border-radius: 2px; }
+
+/* Stacked proportion bar of a brand's health-tier mix. */
+.mix-bar { display: flex; height: 8px; border-radius: 2px; overflow: hidden; background: var(--edge-soft); }
+.mix-seg { display: block; height: 100%; }
+.mix-seg--steady { background: var(--steady); }
+.mix-seg--caution { background: var(--caution); }
+.mix-seg--crit { background: var(--crit); }
+.mix-seg--info { background: var(--info); }
+.at-risk-tag { display: block; font-size: 10px; color: var(--crit); margin-top: 3px; }
+
+.tier-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
+.tier-dot--steady { background: var(--steady); }
+.tier-dot--caution { background: var(--caution); }
+.tier-dot--crit { background: var(--crit); }
+.tier-dot--info { background: var(--info); }
+
+.pill--active { border-color: var(--info); background: var(--info-bg); color: var(--ink); }
+
+.health-badge {
+  display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 7px;
+  border-radius: 999px; white-space: nowrap;
+}
+.health-badge--steady { color: var(--steady); background: var(--steady-bg); }
+.health-badge--caution { color: var(--caution); background: var(--caution-bg); }
+.health-badge--crit { color: var(--crit); background: var(--crit-bg); }
+.health-badge--info { color: var(--info); background: var(--info-bg); }
+
+/* ---------------------------------------------------------
+   Forecast review -- editable forecast cells + draft controls
+   (see ADR 0005). Editing only appears while a review is open.
+   --------------------------------------------------------- */
+.fc-cell {
+  background: transparent; border: 1px dashed var(--edge); border-radius: 3px;
+  color: inherit; font: inherit; font-family: var(--font-mono); font-size: 12px;
+  padding: 1px 6px; cursor: pointer; min-width: 44px;
+}
+.fc-cell:hover { border-color: var(--info); color: var(--info); }
+/* An overridden figure must never be mistakable for the model's own --
+   this is the whole basis of the later accuracy comparison. */
+.fc-cell--overridden {
+  border-style: solid; border-color: var(--info);
+  background: var(--info-bg); color: var(--ink); font-weight: 700;
+}
+.fc-input {
+  width: 60px; font-family: var(--font-mono); font-size: 12px; text-align: center;
+  background: var(--ground); color: var(--ink);
+  border: 1px solid var(--info); border-radius: 3px; padding: 1px 4px;
+}
+
+.review-bar { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.review-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--info); background: var(--info-bg); border: 1px solid var(--info);
+  border-radius: var(--radius); padding: 2px var(--s2);
+}
+.review-count { font-size: 11px; color: var(--ink-dim); }
+.review-error { font-size: 11px; color: var(--crit); }
+
+/* Forecast Accuracy page + nav draft badge */
+.nav-badge {
+  display: inline-block; margin-left: 6px; min-width: 16px; padding: 0 4px;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  color: var(--ground); background: var(--info); border-radius: 8px;
+}
+.snap-group-head {
+  padding: var(--s3) var(--s4) var(--s2); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim);
+  border-bottom: 1px solid var(--edge); background: var(--raised);
+  display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s2);
+  position: sticky; top: 0; z-index: 1;
+}
+.snap-group-head + .snap-group-head { border-top: 1px solid var(--edge); }
+.snap-group-count { color: var(--ink-faint); font-weight: 700; }
+/* What the group IS, in words. A row saying "model only" is easy to miss
+   when every neighbouring row looks the same, and mistaking a machine run
+   for a human review makes the whole page mean the wrong thing. */
+.snap-group-note {
+  grid-column: 1 / -1; text-transform: none; letter-spacing: 0;
+  font-weight: 400; font-size: 10.5px; color: var(--ink-faint);
+}
+
+/* Reserved for irreversible actions -- discarding a draft is the only
+   one on this page. Outlined rather than filled: it should read as
+   serious without competing with the page's own accents. */
+.btn-toggle.btn-danger { border-color: var(--crit); color: var(--crit); }
+.btn-toggle.btn-danger:hover { background: var(--crit); color: var(--ground); }
+.snap-date { display: block; font-size: 10px; color: var(--ink-faint); margin-top: 2px; }
+.fva-verdict { font-size: 15px; font-weight: 600; margin-top: var(--s2); }
+.fva-verdict--steady { color: var(--steady); }
+.fva-verdict--crit { color: var(--crit); }
+.fva-verdict--caution { color: var(--caution); }
+.fva-verdict--info { color: var(--ink-dim); }
+
+/* At-risk summary under the treemap -- a statement about the mix, so it
+   stays whole while the KPI tiles above narrow to the selected tier. */
+.mix-atrisk {
+  /* Sits between a card title and the table it summarises, so it needs
+     air on BOTH sides -- crowding the header made it read as part of
+     the column labels rather than as a statement about them. */
+  margin-top: var(--s2); padding-top: var(--s2); margin-bottom: var(--s3);
+  border-top: 1px solid var(--edge-soft);
+  font-size: 11px; color: var(--ink-dim);
+}
+.mix-atrisk-value { color: var(--crit); font-weight: 700; }
+/* Purchasing power: the dot carries the baseline, so it sits tight
+   against the figure rather than reading as a bullet. */
+.cust-power { white-space: nowrap; }
+.cust-power .dot { margin-right: var(--s1); }
+/* One lifetime order proves what a customer CAN spend but not what they
+   habitually do, and the two deserve different weight in a scan. The
+   Orders column beside it carries the reason. */
+.cust-power--thin { opacity: 0.55; }
+/* A card title's scope line: the dimensions the panel honours, named
+   whether or not they are narrowed. Quieter than the title, and sitting
+   above the summary rather than beside it, so the header reads as one
+   block instead of two competing labels. */
+.chart-title-scope {
+  margin-top: 2px; font-size: 11px; color: var(--ink-dim);
+}
+/* The all-brand line under the filtered one: the same statement at a
+   wider scope, so it reads as a continuation rather than a second
+   heading -- no rule of its own, and it keeps the pair together. */
+.mix-atrisk--sub { margin-top: calc(var(--s2) * -1); padding-top: 0; border-top: 0; }
+
+/* A KPI tile that's also a control (Stock-outs opens its item list). */
+.stock-kpi-tile--action {
+  cursor: pointer; text-align: left; font: inherit; color: inherit;
+  transition: border-color .12s;
+}
+.stock-kpi-tile--action:hover { border-color: var(--caution); }
+.stock-kpi-tile--action.selected { border-color: var(--caution); background: var(--caution-bg); }
+
+/* A card whose headline no longer matches the rest of the page carries
+   the narrowed figure beside it rather than instead of it: the global
+   number is still the one worth knowing, and replacing it would have
+   made a filter silently rewrite the page's headline. The dashed rule
+   between them marks the split as a comparison, not a total. */
+.stock-kpi-tile--narrowed { border-color: var(--info); }
+.stock-kpi-split { display: flex; align-items: flex-start; gap: var(--s4); }
+.stock-kpi-half { flex: 1 1 0; min-width: 0; }
+.stock-kpi-half--narrow {
+  border-left: 1px dashed var(--edge); padding-left: var(--s4); text-align: right;
+}
+.stock-kpi-half--narrow .stock-kpi-num { color: var(--info); font-size: 18px; }
+/* Both halves get the same caption treatment. The global figure was the
+   unlabelled one, which left its scope to be inferred from the fact
+   that it was the larger number -- true here, but not a label. */
+.stock-kpi-scope {
+  display: block; margin-top: 2px; font-size: 10px; color: var(--ink-faint); line-height: 1.3;
+}
+.stock-kpi-half--narrow .stock-kpi-scope { color: var(--info); }
+.stock-kpi-label--head { display: block; margin-bottom: var(--s2); }
+/* The brand/period narrowing rides on the measure name because it
+   qualifies both halves of a split card. Coloured like the narrowed
+   figure so the eye reads every filter-driven mark on the page the
+   same way. */
+.stock-kpi-basis { color: var(--info); text-transform: none; letter-spacing: .04em; }
+
+/* Anything whose numbers move with the filter says so with an outline.
+   Applied to the card, not the figures, because it is the whole panel
+   that is answering a narrowed question. */
+.is-filtered { border-color: var(--info); }
+
+/* KPI cards grouped by the question they answer. Ten tiles in flat rows
+   read as one undifferentiated wall; position (now) and performance (a
+   year) are different units on different time bases and shouldn't invite
+   comparison across the boundary. */
+.stock-kpi-group { margin-top: var(--s4); }
+.stock-kpi-group:first-of-type { margin-top: 0; }
+.stock-kpi-group-head {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: var(--s2);
+}
+
+/* Channel mix under a country's sales/velocity figure. A sub-line rather
+   than extra columns: nine columns would be unreadable and would push
+   whole blocks off the viewport, for a value that is single-channel on
+   nine rows in ten. */
+.chan-mix { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: 2px; font-size: 10px; color: var(--ink-faint); }
+.chan-mix-part { white-space: nowrap; }
+.chan-mix-tag { color: var(--ink-dim); margin-right: 2px; letter-spacing: .04em; }
+
+/* Donut shares. Three segments at most (three markets, three channels),
+   which is the one case where a donut is honestly readable -- the usual
+   objection is comparing many similar slices, which cannot arise here. */
+/* Two donuts share a card, so each figure gets a column and the legend
+   drops beneath its ring rather than beside it -- half a card width is
+   not enough for a ring and a legend side by side. */
+/* A card whose table is shorter than its neighbour left a band of empty
+   card below the last row. Rather than hand-tuning a max-height to
+   match, the table simply takes whatever height the row gives it -- the
+   grid already stretches both cards to the taller one. */
+.chart-card--fill { display: flex; flex-direction: column; }
+/* Capped as well as flexed: without a ceiling the 60-row brand table
+   set the row height and both cards grew to 2,000px. The cap is what
+   the row is worth; flex is what fills whatever is left over in the
+   shorter card. */
+.chart-card--fill .tablewrap-fill {
+  flex: 1 1 auto; min-height: 0; max-height: 340px; overflow-y: auto;
+}
+.donut-figs { display: flex; gap: var(--s5); align-items: flex-start; }
+.donut-fig { flex: 1 1 0; min-width: 0; }
+.donut-fig-label {
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: var(--s3);
+}
+.donut-wrap { display: flex; align-items: center; gap: var(--s5); flex-wrap: wrap; }
+/* Sharing a card shrinks the ring rather than moving the legend under
+   it: a value belongs next to the arc it describes, and stacking put
+   three lines of text between the reader and the next figure. */
+.donut-figs > .donut-fig + .donut-fig {
+  border-left: 1px solid var(--edge-soft); padding-left: var(--s5);
+}
+.donut-wrap--compact { gap: var(--s4); flex-wrap: nowrap; }
+.donut-wrap--compact .donut { width: 104px; height: 104px; }
+.donut-wrap--compact .donut-legend { flex: 1 1 auto; }
+.donut-wrap--compact .donut-legend-item { font-size: 11px; gap: 6px; }
+.donut-wrap--compact .donut-pct { padding-left: var(--s2); }
+.donut-ring { display: flex; align-items: center; justify-content: center; }
+.donut { width: 160px; height: 160px; transform: rotate(-90deg); flex: none; }
+.donut-legend { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.donut-legend-item {
+  display: flex; align-items: center; gap: var(--s2); background: none; border: 0;
+  color: var(--ink-dim); font: inherit; font-size: 12px; cursor: pointer;
+  padding: 2px 0; text-align: left;
+}
+.donut-legend-item:hover { color: var(--ink); }
+.donut-legend-item.active { color: var(--ink); font-weight: 600; }
+.donut-pct { color: var(--ink-faint); margin-left: auto; padding-left: var(--s3); }
+
+.kpi-note { color: var(--caution); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+/* A KPI card expanded into its market x channel matrix. Lives inside the
+   tile rather than in a separate panel so the number and its breakdown
+   stay visually attached -- the matrix explains THAT figure, and putting
+   it elsewhere would make the reader carry the association. */
+.kpi-matrix { width: 100%; margin-top: var(--s3); border-collapse: collapse; font-size: 11px; }
+.kpi-matrix th, .kpi-matrix td { padding: 3px 6px; text-align: right; white-space: nowrap; }
+.kpi-matrix thead th { color: var(--ink-faint); font-weight: 600; border-bottom: 1px solid var(--edge); }
+.kpi-matrix tbody th { text-align: left; color: var(--ink-dim); font-weight: 500; }
+.kpi-matrix td { color: var(--ink); font-variant-numeric: tabular-nums; }
+.kpi-matrix-total { color: var(--ink-dim); font-weight: 600; }
+.kpi-matrix-foot th, .kpi-matrix-foot td { border-top: 1px solid var(--edge); color: var(--ink-dim); }
+.kpi-matrix-empty { margin-top: var(--s3); font-size: 11px; color: var(--ink-faint); }
+.kpi-note-dim { color: var(--ink-faint); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+/* ============================================================
+   Form controls. These had NO styling -- native selects and text
+   inputs were rendering as raw browser widgets against a dark UI,
+   which is why the range picker and search bars looked foreign.
+   Matched to .btn-toggle so a control reads as part of the same
+   family whether it is a button, a select or a field.
+   ============================================================ */
+.input {
+  background: var(--raised); color: var(--ink);
+  border: 1px solid var(--edge); border-radius: var(--radius-sm, 6px);
+  font: inherit; font-size: 11px; padding: 4px 8px; height: 26px;
+  transition: border-color .12s, background .12s;
+}
+.input::placeholder { color: var(--ink-faint); }
+.input:hover { border-color: var(--ink-faint); }
+.input:focus-visible, .input:focus {
+  outline: none; border-color: var(--info); background: var(--raised-hi);
+}
+select.input {
+  /* Native arrow is drawn by the OS and ignores the dark theme, so it
+     is replaced with one that uses our own ink colour. */
+  appearance: none; padding-right: 22px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
+                    linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+  background-position: calc(100% - 12px) 11px, calc(100% - 8px) 11px;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+/* ============================================================
+   Filter bar. Twenty undifferentiated chips in one row gave the
+   reader no way to tell a market from a period from a view mode.
+   Grouping them under quiet labels costs one line of height and
+   makes the row scannable.
+   ============================================================ */
+.filterbar {
+  display: flex; flex-wrap: wrap; gap: var(--s5); align-items: flex-end;
+  /* The bar sat flush against the first section label below it, which
+     read as a caption belonging to the filters rather than a heading
+     for the cards. */
+  margin-bottom: var(--s5);
+}
+/* Inputs in the bar take the toggle's metrics rather than the smaller
+   ones that suit a search box inside a card header. A 26px select next
+   to a 32px button reads as a different class of control, when From/To
+   is doing exactly the same job as the 3mo/6mo buttons beside it. */
+.filterbar .input { font-size: 12.5px; height: 32px; padding: var(--s2) var(--s3); }
+.filterbar select.input { padding-right: 24px; background-position: calc(100% - 13px) 14px, calc(100% - 9px) 14px; }
+.filtergroup { display: flex; flex-direction: column; gap: 5px; }
+.filtergroup-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.filtergroup-row { display: flex; gap: var(--s1); align-items: center; }
+.filterbar-end { margin-left: auto; display: flex; gap: var(--s2); align-items: flex-end; }
+
+/* ============================================================
+   Provenance. The one idea this page is built on: some figures come
+   from the live ERP and some from a manual export, and the reader
+   must never have to guess which. Solid = live, hatched = exported.
+   Used on the headline bar and on both item tables so the vocabulary
+   is learned once and recognised everywhere.
+   ============================================================ */
+.prov { display: flex; flex-direction: column; gap: var(--s2); }
+.prov-bar {
+  display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+  background: var(--edge-soft);
+}
+.prov-seg { height: 100%; }
+.prov-seg--live { background: var(--info); }
+.prov-seg--legacy {
+  background: repeating-linear-gradient(45deg,
+    var(--ink-faint) 0 3px, transparent 3px 6px);
+  background-color: var(--edge);
+}
+.prov-key { display: flex; gap: var(--s4); font-size: 11px; color: var(--ink-dim); }
+.prov-key-item { display: flex; align-items: center; gap: 6px; }
+.prov-swatch { width: 12px; height: 10px; border-radius: 2px; flex: none; }
+.prov-swatch--live { background: var(--info); }
+.prov-swatch--legacy {
+  background: repeating-linear-gradient(45deg,
+    var(--ink-faint) 0 3px, transparent 3px 6px);
+  background-color: var(--edge);
+}
+.prov-val { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Value rows -- label left, number right, share as a fill behind.
+   Replaces plain text that ran label and value together ("UAE1,108")
+   with no alignment and nothing to compare against. */
+.valrow {
+  position: relative; display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; font-size: 12px; cursor: pointer; border-radius: 4px;
+  color: var(--ink-dim);
+}
+.valrow:hover { color: var(--ink); }
+.valrow.selected { color: var(--ink); font-weight: 600; }
+.valrow-fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: 4px;
+  background: var(--info-bg); pointer-events: none;
+}
+.valrow-label, .valrow-value { position: relative; }
+.valrow-value { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+/* Source card figures -- two numbers side by side rather than one per
+   card, so a source is a single object to read instead of a row of
+   boxes that must be mentally re-paired. */
+.src-figs { display: flex; gap: var(--s6); align-items: baseline; }
+.src-figs > div { display: flex; flex-direction: column; }
+/* The figures are the card. Sized up from the shared KPI scale because
+   there are only two of them and they carry the whole summary. */
+.src-figs .stock-kpi-num { font-size: 26px; line-height: 1.1; }
+.src-meta { margin-top: var(--s2); font-size: 11px; color: var(--ink-faint); }
+.src-cover { display: flex; justify-content: space-between; gap: var(--s3); font-size: 11px; }
+
+/* Table footer totals and in-table messages. */
+.tbl-foot th, .tbl-foot td {
+  border-top: 1px solid var(--edge); padding-top: 8px;
+  color: var(--ink-dim); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.tbl-foot th { text-align: left; font-weight: 500; color: var(--ink-faint); }
+.tbl-msg { text-align: center; padding: 20px; color: var(--ink-faint); }
+
+/* Trend tooltip. Rendered as DOM below the svg rather than inside it:
+   an svg <text> tooltip cannot wrap, cannot use the app's type styles,
+   and clips against the plot edge at the ends of the series -- which is
+   exactly where a reader most often hovers. */
+.trend-tip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3);
+  margin-top: var(--s2); padding: 6px 8px;
+  background: var(--raised); border: 1px solid var(--edge); border-radius: 6px;
+  font-size: 11px;
+}
+.trend-tip-when { color: var(--ink-faint); font-family: var(--font-mono); }
+.trend-tip-row { display: flex; align-items: center; gap: 5px; }
+.trend-tip-key { color: var(--ink-dim); }
+.trend-tip-val { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.trend-tip-alt { color: var(--ink-faint); font-family: var(--font-mono); }
+
+/* A qualifier on a chart title -- the granularity it is currently
+   drawn at. Quieter than the title so it reads as a condition on it
+   rather than part of the name. */
+.chart-title-note { color: var(--info); font-weight: 500; }
+
+/* Wrapper the chart measures itself against. */
+.chart-plot { width: 100%; }
+
+/* =========================================================
+   Baskets -- co-purchase affinity
+   ========================================================= */
+/* The stats line states what the current controls actually mean, so it
+   sits between the toolbar and the table rather than inside either. */
+.bk-stats {
+  display: flex; flex-wrap: wrap; gap: var(--s5);
+  margin: var(--s5) 0 var(--s4);
+  font-size: 12px; color: var(--ink-dim);
+}
+.bk-stats strong { color: var(--ink); font-weight: 600; }
+.bk-note { color: var(--caution); }
+.bk-search {
+  font-family: inherit; font-size: 12.5px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--edge);
+  border-radius: var(--radius); padding: var(--s2) var(--s3); min-width: 210px;
+}
+.bk-search::placeholder { color: var(--ink-faint); }
+.bk-select {
+  font-family: inherit; font-size: 12.5px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--edge);
+  border-radius: var(--radius); padding: var(--s2) var(--s3);
+}
+/* Two lines per item: the code identifies it, the name is what a reader
+   recognises, and a pair table is unreadable with only one of them. */
+.bk-item { line-height: 1.35; }
+.bk-item-code { font-family: var(--font-mono); font-size: 11px; color: var(--ink); }
+.bk-item-name {
+  font-size: 11px; color: var(--ink-dim);
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bk-table td { vertical-align: top; }
+
+/* The column guide is a panel rather than tooltips alone: eight
+   unfamiliar statistics need somewhere to be read side by side once,
+   after which the header tooltips are enough. */
+.bk-info {
+  margin: var(--s4) 0; padding: var(--s4);
+  border: 1px solid var(--edge-soft); border-radius: var(--radius);
+  background: var(--raised);
+}
+.bk-info-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s4); margin-bottom: var(--s4);
+  font-size: 12px; color: var(--ink-dim);
+}
+.bk-info-grid {
+  display: grid; gap: var(--s4);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.bk-info-card {
+  border: 1px solid var(--edge-soft); border-radius: var(--radius);
+  padding: var(--s3); font-size: 11px; color: var(--ink-dim);
+}
+.bk-info-metric {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--ink); margin-bottom: var(--s2);
+}
+.bk-info-meaning { color: var(--ink); margin-bottom: var(--s2); }
+.bk-info-line { margin-top: 2px; }
+
+/* =========================================================
+   Requests -- pending purchase requests against stock
+   ========================================================= */
+.mr-doc { font-family: var(--font-mono); font-size: 11px; }
+/* Names are long and this column is not what the table is for. */
+.mr-who { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The quantity to order is the column the page exists for. */
+.mr-want { font-weight: 600; color: var(--ink); }
+.mr-reqs { color: var(--ink-faint); font-weight: 400; }
+/* Zero stock is the signal, not the absence of one: an item nobody has
+   is the request that cannot wait, so it is marked rather than left to
+   read as just another number. */
+.mr-none { color: var(--crit); }
+/* A request unfilled for a quarter is a different problem from a new
+   one, and only the age column can say so. */
+.mr-stale { color: var(--caution); }
+.mr-section td {
+  background: var(--raised);
+  border-top: 1px solid var(--edge);
+  font-weight: 600; color: var(--ink); font-size: 11px;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+/* The snapshot is context, not the work -- so it is bounded and scrolls
+   inside itself. 47 brands rendered whole would push the table it is
+   meant to introduce off the screen. */
+.mr-new { margin-bottom: var(--s5); }
+.mr-snapshot { margin-bottom: var(--s5); }
+/* A structural zero: present, counted, and not worth reading. */
+.mr-zero { color: var(--ink-faint); }
+
+/* Auto-fit rather than a fixed column count: the snapshot is context
+   that should use whatever width the page has, and it is the one place
+   on this page where more screen genuinely means more visible at once
+   rather than the same content stretched. */
+.mr-cards {
+  display: grid; gap: var(--s3);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.mr-card {
+  border: 1px solid var(--edge-soft); border-radius: var(--radius);
+  background: var(--raised); padding: var(--s3);
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  /* A button, so it is reachable by keyboard and announces itself as a
+     control -- the card IS the filter, not a decoration beside one. */
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.mr-card:hover { border-color: var(--ink-faint); }
+.mr-card.is-picked { border-color: var(--info); background: var(--info-bg); }
+.mr-card.is-picked .mr-card-brand { color: var(--ink); }
+/* One line, clipped: brand names run to "The Jekill and Hyde" and
+   wrapping them would make every card in the row as tall as the
+   longest name. */
+.mr-card-brand {
+  font-size: 11px; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mr-card-total {
+  font-size: 20px; font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15;
+}
+/* Only the markets that actually asked. A dot carries which one, in the
+   same colour that market wears everywhere else in the app. */
+.mr-card-split {
+  display: flex; flex-wrap: wrap; gap: var(--s2);
+  font-size: 11px; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.mr-card-mkt { display: inline-flex; align-items: center; gap: 3px; }
+/* The date span, kept on one line: two dates that wrap would make every
+   card in the row as tall as the widest pair. */
+.mr-card-span {
+  font-size: 10px; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mr-card-lines { font-size: 10px; color: var(--ink-faint); }
+.mr-section-note {
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: var(--ink-dim);
+}
+
+/* =========================================================
+   Overview -- the executive summary
+   ========================================================= */
+.ov-shell {
+  display: grid; gap: var(--s6); align-items: start;
+  grid-template-columns: 210px minmax(0, 1fr);
+  padding-block: var(--s6) var(--s8);
+}
+/* The rail stays in view while the summary scrolls: every tool one
+   click away is the whole point of a home page. */
+/* A grid with equal rows, not a flex column: every card is the same
+   height and they grow together, so the rail reads as one instrument
+   rather than eight cards of whatever size their text happened to
+   need. */
+.ov-rail {
+  position: sticky; top: var(--s5);
+  display: grid; grid-auto-rows: 1fr; gap: var(--s2);
+}
+.ov-rail-head {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint); padding-left: 2px; margin-bottom: var(--s1);
+}
+.ov-tool {
+  position: relative; overflow: hidden;
+  display: grid; grid-template-rows: auto 1fr auto;
+  text-decoration: none; color: inherit;
+  background: var(--raised); border: 1px solid var(--edge-soft);
+  border-radius: var(--radius); padding: var(--s3) var(--s4) var(--s3) calc(var(--s4) + 3px);
+  transition: border-color .12s, background .12s;
+}
+/* An inset accent rather than a border-left, so the card keeps its
+   radius on all four corners. */
+.ov-tool::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--edge); transition: background .12s;
+}
+.ov-tool:hover { border-color: var(--edge); background: var(--raised-hi); }
+.ov-tool:hover::before { background: var(--info); }
+.ov-tool.is-warn::before { background: var(--caution); }
+
+/* The title is the constant -- same size, same place, always legible,
+   whatever the figure beneath it is doing. */
+.ov-tool-name {
+  font-size: 11px; font-weight: 600; color: var(--ink);
+  letter-spacing: .01em; line-height: 1.25;
+}
+.ov-tool-value {
+  align-self: center;
+  font-family: var(--font-display); font-weight: 600; font-stretch: 112%;
+  font-size: 19px; line-height: 1.1; color: var(--ink);
+  font-variant-numeric: tabular-nums; padding: var(--s2) 0;
+}
+.ov-tool-none { color: var(--ink-faint); font-weight: 400; }
+.ov-tool-note {
+  font-size: 10.5px; color: var(--ink-dim); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ov-tool.is-warn .ov-tool-note { color: var(--caution); }
+/* Appears on hover only: eight permanent arrows is eight pieces of
+   chrome saying the same thing a cursor already says. */
+.ov-tool-go {
+  position: absolute; right: var(--s3); top: var(--s3);
+  font-size: 12px; color: var(--info); opacity: 0;
+  transform: translateX(-3px); transition: opacity .12s, transform .12s;
+}
+.ov-tool:hover .ov-tool-go { opacity: 1; transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .ov-tool-go { transition: none; }
+}
+
+.ov-main { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.ov-basis { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.ov-basis-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint); margin-right: var(--s2);
+}
+/* Present but visibly unavailable, with the date on the tooltip -- a
+   control that vanished would read as a feature nobody built. */
+.ov-basis-off { border-style: dashed; color: var(--ink-faint); cursor: not-allowed; }
+
+.ov-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: var(--s3);
+}
+.ov-hero-row { display: flex; align-items: flex-end; gap: var(--s7); flex-wrap: wrap; }
+.ov-hero-figure {
+  font-family: var(--font-display); font-weight: 700; font-stretch: 125%;
+  font-size: clamp(28px, 3.4vw, 42px); line-height: 1; letter-spacing: -.01em;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.ov-hero-sub { font-size: 12px; color: var(--ink-dim); margin-top: var(--s3); }
+.ov-hero-stats { display: flex; gap: var(--s6); flex-wrap: wrap; padding-bottom: 2px; }
+.ov-stat { display: flex; flex-direction: column; gap: 3px; }
+.ov-stat-num {
+  font-family: var(--font-display); font-weight: 600; font-stretch: 112%;
+  font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
+}
+.ov-stat-label {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+}
+.ov-hero-spark { margin-top: var(--s5); border-top: 1px solid var(--edge-soft); padding-top: var(--s4); }
+.ov-hero-note { font-size: 11px; color: var(--ink-faint); margin-top: var(--s2); }
+
+.ov-pair { display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.ov-figure {
+  font-family: var(--font-display); font-weight: 700; font-stretch: 112%;
+  font-size: 26px; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.ov-figure.sm { font-size: 20px; }
+.ov-figure.crit { color: var(--crit); }
+.ov-warn-line { font-size: 12px; color: var(--caution); margin-top: var(--s2); }
+.ov-note { font-size: 11px; color: var(--ink-faint); margin-top: var(--s3); line-height: 1.5; }
+.ov-cost-row { display: flex; gap: var(--s6); }
+
+.ov-moved { display: grid; gap: var(--s6); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.ov-moved-title { font-size: 11px; color: var(--ink-dim); margin-bottom: var(--s3); }
+.ov-moved-row, .ov-brand-row {
+  display: grid; align-items: center; gap: var(--s3);
+  padding: var(--s2) 0; font-size: 12px;
+}
+.ov-moved-row { grid-template-columns: 8px 62px minmax(0, 1fr) auto auto; }
+.ov-brand-row { grid-template-columns: minmax(0, 1fr) auto; }
+.ov-moved-row + .ov-moved-row, .ov-brand-row + .ov-brand-row { border-top: 1px solid var(--edge-soft); }
+.ov-moved-name, .ov-brand-name {
+  color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ov-moved-val { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+/* Axis-less by design. Scaled to its own range, so two of these are not
+   comparable in height and are not meant to be -- the figure beside
+   each one carries the magnitude. */
+.ov-spark { display: block; width: 100%; height: 100%; overflow: visible; }
+.ov-spark--empty { display: block; height: 20px; }
+
+.ov-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ov-delta.up { color: var(--steady); }
+.ov-delta.down { color: var(--crit); }
+.ov-delta-suffix { font-weight: 400; color: var(--ink-faint); }
+
+/* A figure that has not arrived, at the size the real one will take, so
+   nothing shifts when the payload lands. */
+.ov-skel {
+  display: block; border-radius: 4px; background: var(--edge-soft);
+  animation: ov-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ov-pulse { 0%, 100% { opacity: .5; } 50% { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { .ov-skel { animation: none; } }
+
+.ov-error {
+  border: 1px solid var(--crit); background: var(--crit-bg);
+  border-radius: var(--radius); padding: var(--s3) var(--s4);
+  font-size: 12px; color: var(--ink);
+}
+.ov-coverage {
+  display: flex; flex-wrap: wrap; gap: var(--s5); margin-top: var(--s3);
+  font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+
+/* Below this the rail cannot be a column without squeezing the summary,
+   so it becomes a scrollable strip above it. */
+@media (max-width: 900px) {
+  .ov-shell { grid-template-columns: minmax(0, 1fr); }
+  .ov-rail {
+    position: static; flex-direction: row; overflow-x: auto;
+    padding-bottom: var(--s2);
+  }
+  .ov-rail-head { display: none; }
+  .ov-rail { display: flex; }
+  .ov-tool { flex: 0 0 176px; }
+}

@@ -1,0 +1,22 @@
+# Dependencies and build output
+node_modules/
+dist/
+.vite/
+
+# Nothing in this repo should ever need these, and that is the point --
+# there is no backend to authenticate against and no data to protect.
+# They are listed so that a file copied across from the app repo by
+# accident cannot be committed from here.
+.env
+.env.*
+!.env.example
+firebaseJWT.json
+*.csv
+serviceAccount*.json
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
