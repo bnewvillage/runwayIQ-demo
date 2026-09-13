@@ -1,0 +1,68 @@
+# Build the demo and publish it to GitHub Pages.
+#
+# Pages cannot serve this repository directly. The root holds Vite SOURCE:
+# index.html there points at /src/main.jsx, which is both root-absolute
+# (wrong for a project site served under /<repo>/) and JSX, which no
+# browser executes. Only `npm run build` produces something servable, and
+# `dist/` is deliberately gitignored -- committing build output is how a
+# repo ends up serving a bundle nobody can trace back to a commit.
+#
+# So the build happens here, and the artifact is published straight to
+# Pages. Repository Settings -> Pages -> Source must be set to
+# "GitHub Actions" for this to be what gets served; leaving it on
+# "Deploy from a branch" serves the source tree instead, which is the
+# failure this file exists to fix.
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So the site can be republished without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one in progress: a half-finished
+# Pages deployment is a broken site, unlike a cancelled build.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # `ci`, not `install`: it installs exactly what package-lock.json
+      # pins, so what ships is what was tested rather than whatever
+      # resolved today.
+      - run: npm ci
+
+      # Runs eslint before vite build (see package.json), so a lint error
+      # fails the deploy rather than shipping.
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
